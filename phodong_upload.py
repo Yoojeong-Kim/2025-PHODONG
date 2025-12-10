@@ -90,6 +90,11 @@ class LLMService:
             
             if response.text:
                 data = json.loads(Utils.clean_json_text(response.text))
+                if isinstance(data, list):
+                    if len(data) > 0:
+                        data = data[0]
+                    else:
+                        data = {} # 빈 리스트가 올 경우 대비
                 return StoryCard(
                     character_name=data.get("character_name", "친구"),
                     character_type=data.get("character_type", "요정"),
