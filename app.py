@@ -57,13 +57,11 @@ class ArtWork:
 def inject_css():
     st.markdown("""
     <style>
-        /* 1. 폰트 및 기본 테마 설정 (기존 유지) */
+        /* 1. 기본 폰트 및 테마 (기존 유지) */
         @import url('https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap');
         :root { --bg-base: #FFFBF8; --primary: #FF9EAA; --secondary: #FFD580; --tertiary: #A0C4FF; }
         .stApp { background: linear-gradient(135deg, #FFFBF8 0%, #FFF5F7 50%, #F0F7FF 100%); font-family: 'Gowun Dodum', sans-serif; }
         h1, h2, h3 { font-family: 'Jua', sans-serif; color: #3A3A3A; }
-        
-        /* 2. UI 컴포넌트 스타일 (기존 유지) */
         .stButton>button { border-radius: 12px; background: linear-gradient(45deg, var(--primary), #FF8495); color: white; font-family: 'Jua'; border: none; height: 50px; font-size: 1.2rem; }
         .polaroid-frame { background: white; padding: 15px 15px 50px 15px; border: 1px solid #EEE; box-shadow: 0 8px 20px rgba(0,0,0,0.05); border-radius: 4px; }
         .polaroid-img { width: 100%; border-radius: 2px; border: 1px solid #F0F0F0; }
@@ -71,38 +69,38 @@ def inject_css():
         .dialogue-box { background: #FFFBE6; border: 2px solid #FFF5C4; border-radius: 20px 20px 20px 0; padding: 25px; margin-bottom: 20px; font-family: 'Jua'; font-size: 1.3rem; color: #5D4037; }
         .loader-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
 
-        /* 🔥 3. [가져오신 코드 응용] Streamlit UI 강제 숨기기 🔥 */
-        div[data-testid="stToolbar"] {
-            visibility: hidden;
-            height: 0%;
-            position: fixed;
+        /* 🔥 [여기가 중요!] 사진 속 요소 정밀 타격 🔥 */
+
+        /* 1. 우측 하단 빨간 뱃지 (Hosted with Streamlit) 없애기 */
+        /* 'viewerBadge'라는 단어가 포함된 모든 요소를 찾아서 숨김 */
+        [class^="viewerBadge"] {
+            display: none !important;
+            visibility: hidden !important;
         }
-        div[data-testid="stDecoration"] {
-            visibility: hidden;
-            height: 0%;
-            position: fixed;
-        }
-        div[data-testid="stStatusWidget"] {
-            visibility: hidden;
-            height: 0%;
-            position: fixed;
-        }
-        #MainMenu {
-            visibility: hidden;
-            height: 0%;
-        }
-        header {
-            visibility: hidden;
-            height: 0%;
-        }
-        footer {
-            visibility: hidden;
-            height: 0%;
+
+        /* 2. 우측 하단 프로필 아이콘 (Avatar) 없애기 */
+        /* 보통 stStatusWidget이나 user-avatar 관련 클래스를 씀 */
+        [data-testid="stStatusWidget"] {
+            display: none !important;
+            visibility: hidden !important;
         }
         
-        /* 🔥 4. [추가] 혹시 모를 'Hosted with Streamlit' 뱃지 안전장치 🔥 */
-        .viewerBadge_container__1QSob, [class*="viewerBadge"] {
+        /* 3. 우측 상단 툴바 (햄버거 메뉴 등) 없애기 */
+        [data-testid="stToolbar"] {
             display: none !important;
+            visibility: hidden !important;
+        }
+
+        /* 4. 상단 데코레이션 바 없애기 */
+        [data-testid="stDecoration"] {
+            display: none !important;
+            visibility: hidden !important;
+        }
+        
+        /* 5. 혹시 모를 푸터 잔재 없애기 */
+        footer {
+            display: none !important;
+            visibility: hidden !important;
         }
     </style>
     """, unsafe_allow_html=True)
