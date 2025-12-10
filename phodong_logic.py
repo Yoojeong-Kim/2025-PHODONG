@@ -144,6 +144,11 @@ class LLMService:
                 )
         except Exception as e:
             logger.error(f"LLM Error: {e}")
+
+            # 👇 [추가] 이 줄을 추가해서 화면에 에러를 띄워보세요 (테스트용)
+            import streamlit as st
+            st.error(f"⚠️ 실제 오류 내용: {e}")
+
             return StoryCard(
                 character_name="신비한 친구",
                 character_type="오류 요정",
