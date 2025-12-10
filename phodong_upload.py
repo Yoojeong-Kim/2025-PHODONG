@@ -21,7 +21,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 logger = logging.getLogger("PhodongCore")
 
 # 상수
-DEFAULT_MODEL = "gemini-1.5-flash"
+DEFAULT_MODEL = "gemini-2.0-flash"
 GENRE_OPTIONS = ["전래동화", "판타지", "히어로", "요정", "일상", "자동차", "공주/왕자", "추리", "우주", "로봇", "동물", "공룡"]
 PURPOSE_OPTIONS = ["안전", "예절&규칙", "문화", "어휘력", "세계&다양성", "사고력", "기초과학", "자신감"]
 
