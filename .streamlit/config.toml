@@ -4,3 +4,7 @@ primaryColor = "#FF9EAA"
 backgroundColor = "#FFFBF8"
 secondaryBackgroundColor = "#FFF0F5"
 textColor = "#555555"
+
+# 툴바 숨기기 설정
+[client]
+toolbarMode = "viewer"
