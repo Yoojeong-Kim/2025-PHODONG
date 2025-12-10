@@ -3,7 +3,7 @@ import io
 import streamlit as st
 from PIL import Image
 
-# 👇 [변경된 부분] 파일 이름 변경에 따른 import 수정
+# 로직 임포트
 from phodong_upload import (
     StoryConfig, StoryCard, LLMService, AudioService, Utils,
     GENRE_OPTIONS, PURPOSE_OPTIONS
@@ -25,18 +25,21 @@ def get_api_key():
 def inject_css():
     st.markdown("""
     <style>
-        @import url('[https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap](https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap)');
+        @import url('https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap');
         :root { --bg-base: #FFFBF8; --primary: #FF9EAA; --secondary: #FFD580; --tertiary: #A0C4FF; }
         .stApp { background: linear-gradient(135deg, #FFFBF8 0%, #FFF5F7 50%, #F0F7FF 100%); font-family: 'Gowun Dodum', sans-serif; }
         h1, h2, h3 { font-family: 'Jua', sans-serif; color: #3A3A3A; }
-        .stButton>button { border-radius: 12px; background: linear-gradient(45deg, var(--primary), #FF8495); color: white; font-family: 'Jua'; border: none; height: 50px; font-size: 1.2rem; }
+        
+        /* 버튼 스타일 수정 (width 대응) */
+        .stButton>button { border-radius: 12px; background: linear-gradient(45deg, var(--primary), #FF8495); color: white; font-family: 'Jua'; border: none; height: 50px; font-size: 1.2rem; width: 100%; }
+        
         .polaroid-frame { background: white; padding: 15px 15px 50px 15px; border: 1px solid #EEE; box-shadow: 0 8px 20px rgba(0,0,0,0.05); border-radius: 4px; }
         .polaroid-img { width: 100%; border-radius: 2px; border: 1px solid #F0F0F0; }
         .polaroid-label { text-align: center; margin-top: 15px; font-family: 'Jua'; color: #BBB; }
         .dialogue-box { background: #FFFBE6; border: 2px solid #FFF5C4; border-radius: 20px 20px 20px 0; padding: 25px; margin-bottom: 20px; font-family: 'Jua'; font-size: 1.3rem; color: #5D4037; }
         .loader-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
 
-        /* 🔥 Streamlit UI 숨기기 (완벽 버전) 🔥 */
+        /* Streamlit UI 숨기기 */
         div[data-testid="stToolbar"], div[data-testid="stDecoration"], div[data-testid="stStatusWidget"], #MainMenu, header, footer {
             visibility: hidden; height: 0%; position: fixed;
         }
@@ -69,11 +72,13 @@ def landing_page():
         col_up, col_cam = st.columns(2, gap="medium")
         with col_up:
             st.markdown("<div style='text-align:center; font-size:3rem;'>📂</div>", unsafe_allow_html=True)
-            if st.button("앨범 업로드", use_container_width=True):
+            # 👇 [수정] use_container_width=True 제거 -> CSS로 width:100% 처리됨
+            if st.button("앨범 업로드"):
                 st.session_state.mode = "upload"; st.rerun()
         with col_cam:
             st.markdown("<div style='text-align:center; font-size:3rem;'>📸</div>", unsafe_allow_html=True)
-            if st.button("카메라 촬영", use_container_width=True):
+            # 👇 [수정] use_container_width=True 제거
+            if st.button("카메라 촬영"):
                 st.session_state.mode = "camera"; st.rerun()
 
 def render_config():
@@ -168,13 +173,11 @@ def main():
             render_config()
             st.markdown("---")
             
-            # [핵심] 모드에 따른 분기 처리
             if st.session_state.mode == "upload":
                 files = st.file_uploader("사진 업로드", accept_multiple_files=True)
                 if files and st.button("만들기", type="primary"): process_images(files)
                     
             elif st.session_state.mode == "camera":
-                # 👇 변경된 모듈에서 호출
                 captured_images = CameraManager.render_camera_ui()
                 if captured_images:
                     process_images(captured_images)
