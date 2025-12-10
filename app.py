@@ -30,7 +30,7 @@ def inject_css():
         .stApp { background: linear-gradient(135deg, #FFFBF8 0%, #FFF5F7 50%, #F0F7FF 100%); font-family: 'Gowun Dodum', sans-serif; }
         h1, h2, h3 { font-family: 'Jua', sans-serif; color: #3A3A3A; }
         
-        /* 버튼 스타일 수정 (width 대응) */
+        /* 버튼 스타일 (CSS로 너비 100% 강제 적용 -> use_container_width 필요 없음) */
         .stButton>button { border-radius: 12px; background: linear-gradient(45deg, var(--primary), #FF8495); color: white; font-family: 'Jua'; border: none; height: 50px; font-size: 1.2rem; width: 100%; }
         
         .polaroid-frame { background: white; padding: 15px 15px 50px 15px; border: 1px solid #EEE; box-shadow: 0 8px 20px rgba(0,0,0,0.05); border-radius: 4px; }
@@ -72,12 +72,12 @@ def landing_page():
         col_up, col_cam = st.columns(2, gap="medium")
         with col_up:
             st.markdown("<div style='text-align:center; font-size:3rem;'>📂</div>", unsafe_allow_html=True)
-            # 👇 [수정] use_container_width=True 제거 -> CSS로 width:100% 처리됨
+            # 👇 use_container_width 삭제 (CSS로 처리)
             if st.button("앨범 업로드"):
                 st.session_state.mode = "upload"; st.rerun()
         with col_cam:
             st.markdown("<div style='text-align:center; font-size:3rem;'>📸</div>", unsafe_allow_html=True)
-            # 👇 [수정] use_container_width=True 제거
+            # 👇 use_container_width 삭제 (CSS로 처리)
             if st.button("카메라 촬영"):
                 st.session_state.mode = "camera"; st.rerun()
 
