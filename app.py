@@ -140,18 +140,68 @@ def scene_view():
         if c_next.button("✨ 완성하기", type="primary"): st.session_state.show_final = True; st.rerun()
 
 def final_view():
+    # 1. 아직 이야기가 없으면 생성 (기존 로직 유지)
     if not st.session_state.final_story_text:
         with st.spinner("책 엮는 중..."):
             llm = LLMService(get_api_key())
             text = llm.generate_final_story(st.session_state.story_cards, st.session_state.story_config)
             audio = AudioService.create(text)
-            st.session_state.final_story_text = text; st.session_state.final_audio_data = audio; st.rerun()
+            st.session_state.final_story_text = text
+            st.session_state.final_audio_data = audio
+            st.rerun()
             
-    st.markdown("## 📕 동화책 완성!")
-    c1, c2 = st.columns([1.5, 1])
-    c1.markdown(f"<div style='line-height:2.0;'>{st.session_state.final_story_text}</div>", unsafe_allow_html=True)
-    if st.session_state.final_audio_data: c2.audio(st.session_state.final_audio_data, format="audio/mp3")
-    if c2.button("처음으로"): st.session_state.clear(); st.rerun()
+    # 2. [수정됨] JSON 파싱 및 이쁜 디자인 적용
+    import json # JSON 처리를 위해 임포트
+    
+    raw_text = st.session_state.final_story_text
+    title = "나만의 동화책"
+    body = raw_text
+
+    # JSON 파싱 시도 (제목과 본문 분리)
+    try:
+        data = json.loads(raw_text)
+        if isinstance(data, list) and len(data) > 0: data = data[0]
+        if isinstance(data, dict):
+            title = data.get("title", "제목 없는 동화")
+            body = data.get("story", raw_text)
+    except:
+        # JSON이 아닐 경우 첫 줄을 제목으로 사용
+        lines = raw_text.strip().split('\n')
+        if len(lines) > 1:
+            title = lines[0].replace("#", "").strip()
+            body = "\n".join(lines[1:])
+
+    # 3. 화면 렌더링
+    st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align:center; color:#FF9EAA; font-size:2.5rem; margin-bottom:30px;'>🎉 동화책이 완성되었어요!</h2>", unsafe_allow_html=True)
+    
+    c1, c2 = st.columns([1.5, 1], gap="large")
+    
+    # [왼쪽] 책 모양 디자인 (인라인 스타일 사용으로 CSS 수정 없이 적용)
+    with c1:
+        st.markdown(f"""
+        <div style="background-color: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.08); border-left: 10px solid #FF9EAA;">
+            <div style="font-family: 'Jua', sans-serif; font-size: 2.0rem; color: #FF9EAA; text-align: center; margin-bottom: 20px;">
+                {title}
+            </div>
+            <hr style="border: 0; border-top: 1px dashed #FF9EAA; margin-bottom: 20px;">
+            <div style="font-family: 'Gowun Dodum', sans-serif; font-size: 1.15rem; line-height: 2.0; color: #555; white-space: pre-wrap; text-align: justify;">
+                {body}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # [오른쪽] 오디오 및 버튼
+    with c2:
+        st.markdown("### 🎧 들어보기")
+        if st.session_state.final_audio_data: 
+            st.audio(st.session_state.final_audio_data, format="audio/mp3")
+        
+        st.markdown("### 💾 저장하기")
+        # 다운로드 버튼 기능 추가 (원하시면 HTML 다운로드 등 추가 가능)
+        if st.button("🏠 처음으로"): 
+            st.session_state.clear()
+            st.rerun()
 
 # ==============================================================================
 # MAIN ROUTING
