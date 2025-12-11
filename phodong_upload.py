@@ -65,7 +65,12 @@ class LLMService:
         self.api_key = api_key if api_key else os.getenv("GOOGLE_API_KEY")
         if not self.api_key: raise ValueError("API Key가 없습니다.")
         genai.configure(api_key=self.api_key)
-        self.model = genai.GenerativeModel(DEFAULT_MODEL)
+
+        generation_config = genai.types.GenerationConfig(
+            temperature=1.0,
+            response_mime_type="application/json"
+        )
+        self.model = genai.GenerativeModel(DEFAULT_MODEL, generation_config=generation_config)
 
     def generate_story_card(self, image_file, config: StoryConfig) -> StoryCard:
         try:
@@ -75,11 +80,32 @@ class LLMService:
 
             prompt = [
                 f"""
-                {config.age if config.age else 5}세 아이를 위한 동화 작가입니다.
-                사진 속 사물을 의인화하여 캐릭터를 만들고 JSON으로 출력하세요.
-                설정: {config.genre}, {config.purpose}, 주인공 {config.child_name}, 짝꿍 {config.partner_name}
-                형식:
-                {{ "character_name": "...", "character_type": "...", "magic_power": "...", "personality": "...", "dialogue": "...", "story_narration": "..." }}
+                당신은 {config.age if config.age else 5}세 아이를 위한 베스트셀러 동화 작가입니다.
+                사진 속 사물이나 풍경을 의인화하여 생동감 넘치는 캐릭터를 만들고, 
+                마치 실제 동화책의 한 페이지를 읽는 듯한 아름답고 구체적인 문장으로 이야기를 서술하세요.
+
+                [설정]
+                - 장르: {config.genre}
+                - 교육 목적: {config.purpose}
+                - 주인공 이름: {config.child_name}
+                - 짝꿍(친구) 이름: {config.partner_name}
+
+                [필수 요구사항]
+                1. **story_narration (상황 설명)**: 단순한 요약이 아니라, **눈앞에 그려지듯 생생하고 감성적인 서술형 문장**으로 작성하세요. (최소 2~3문장 이상)
+                   - 나쁜 예: "친구가 꽃가루를 뿌려 위험을 알린다."
+                   - 좋은 예: "그때였어요! 꼬마 요정 핑키가 반짝이는 날개를 파닥이며 나타났어요. '얘들아, 조심해!' 핑키는 주머니에서 황금빛 꽃가루를 후우~ 불어 친구들에게 위험을 알렸답니다."
+                2. **dialogue (대사)**: 캐릭터의 성격이 드러나는 말투(해요체)를 사용하세요.
+                3. **character_name**: 장르에 어울리는 기발한 이름을 지어주세요.
+
+                [출력 형식 (JSON)]
+                {{
+                    "character_name": "캐릭터 이름",
+                    "character_type": "원래 사물/동물",
+                    "magic_power": "마법 능력",
+                    "personality": "성격",
+                    "dialogue": "캐릭터의 대사",
+                    "story_narration": "동화책 서술형 상황 묘사 (길고 구체적으로)"
+                }}
                 """,
                 resized_image
             ]
@@ -111,9 +137,23 @@ class LLMService:
 
     def generate_final_story(self, cards: List[StoryCard], config: StoryConfig) -> str:
         scenes = "\n".join([f"- {c.character_name}: \"{c.dialogue}\" ({c.story_narration})" for c in cards])
-        prompt = f"'{config.child_name}'와 '{config.partner_name}'의 동화. 제목 첫줄. 해요체.\n{scenes}"
+
+        prompt = f"""
+        당신은 세계적인 동화 작가입니다. 
+        아래의 장면 조각들을 모아 '{config.child_name}'와 '{config.partner_name}'가 주인공인 하나의 완벽하고 아름다운 동화를 완성하세요.
+
+        [조건]
+        1. **제목**: 첫 줄에 창의적인 제목을 적어주세요.
+        2. **문체**: 아이에게 읽어주는 듯한 다정하고 부드러운 '해요체'를 사용하세요.
+        3. **구성**: 기승전결이 자연스럽게 이어지도록 장면 사이의 연결 문장을 풍부하게 추가하세요.
+        4. **분량**: 각 장면의 묘사를 살려 충분히 길고 풍성하게 작성하세요.
+
+        [장면 내용]
+        {scenes}
+        """
+
         try: return self.model.generate_content(prompt).text
-        except: return "이야기 생성 실패"
+        except: return "이야기 생성에 실패했어요"
 
 class AudioService:
     @staticmethod
