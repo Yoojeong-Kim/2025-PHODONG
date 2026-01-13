@@ -28,7 +28,7 @@ def main():
     with c2: 
         st.markdown(styles.Utils.clean_html("""
             <div style="display:flex; align-items:center; height:100%;">
-                <h3 class='font-heading' style='color:#FF9EAA; margin:0; font-size:1.8rem;'>포동 PHODONG</h3>
+                <h3 class='font-heading' style='color:#FF9EAA; margin:0; font-size:1.8rem;'>mobile prototype</h3>
             </div>
         """), unsafe_allow_html=True)
     st.markdown("<hr style='margin: 15px 0 40px 0; border:0; border-top:2px solid #F0F0F0;'>", unsafe_allow_html=True)
@@ -43,8 +43,8 @@ def main():
     with left_col:
         # [디자인 적용] 제목 및 설명
         st.markdown("""
-            <h1 class="landing-title">나의 웹사이트 제목</h1>
-            <p class="landing-subtitle">여기에 부제목이나 설명을 적으세요.</p>
+            <h1 class="landing-title">포동 PHODONG</h1>
+            <p class="landing-subtitle">아이의 소중한 순간들이 세상에 하나뿐인 동화책이 됩니다.</p>
         """, unsafe_allow_html=True)
         
         # [디자인 적용] 3단계 가이드 (styles.ArtWork 아이콘 활용)
@@ -56,18 +56,18 @@ def main():
             <div class="step-container">
                 <div class="step-item step-1">
                     <div>{folder_icon}</div>
-                    <div class="step-title" style="color:#A0C4FF;">Step 1</div>
-                    <div class="step-desc">여기에 1단계 설명을 적으세요.</div>
+                    <div class="step-title" style="color:#A0C4FF;">조각 모으기</div>
+                    <div class="step-desc">이야기를 만들기 위한 사진조각을 준비해요.</div>
                 </div>
                 <div class="step-item step-2">
                     <div>{bear_icon}</div>
-                    <div class="step-title" style="color:#FFD580;">Step 2</div>
-                    <div class="step-desc">여기에 2단계 설명을 적으세요.</div>
+                    <div class="step-title" style="color:#FFD580;">마법부리기</div>
+                    <div class="step-desc">포동이가 재미있는 이야기를 만들어요.</div>
                 </div>
                 <div class="step-item step-3">
                     <div>{book_icon}</div>
-                    <div class="step-title" style="color:#FF9EAA;">Step 3</div>
-                    <div class="step-desc">여기에 3단계 설명을 적으세요.</div>
+                    <div class="step-title" style="color:#FF9EAA;">동화책 완성</div>
+                    <div class="step-desc">예쁜 표지와 목소리를 선물받아요.</div>
                 </div>
             </div>
         """), unsafe_allow_html=True)
@@ -77,7 +77,7 @@ def main():
         st.markdown(styles.Utils.clean_html("""
             <div class="landing-action">
                 <div class="action-header">
-                    👇 여기에 기능을 배치하세요
+                    👇 여기로 이야기 조각을 보내주세요!
                 </div>
             </div>
         """), unsafe_allow_html=True)
