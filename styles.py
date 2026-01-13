@@ -67,7 +67,7 @@ CSS_STYLE = """
     }
     
     /* [수정] 메인 타이틀: 통통한 폰트 + 반응형 크기 (2.5rem ~ 4.5rem) */
-    .landing-title {
+    h1.landing-title {
         font-family: 'Jua', sans-serif !important;
         color: #FF9EAA !important;
         font-size: clamp(2.5rem, 6vw, 4.5rem) !important; 

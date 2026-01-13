@@ -243,14 +243,14 @@ def main():
     bear = styles.ArtWork.get_bear(45)
     c1, c2 = st.columns([0.8, 11.2])
     with c1: st.markdown(f"<div>{bear}</div>", unsafe_allow_html=True)
-    with c2: st.markdown(styles.Utils.clean_html("<h3 class='font-heading' style='color:#FF9EAA; margin:0; font-size:1.8rem; line-height:1.5;'>포동 PHODONG</h3>"), unsafe_allow_html=True)
+    with c2: st.markdown(styles.Utils.clean_html("<h3 class='font-heading' style='color:#FF9EAA; margin:0; font-size:1rem; line-height:1;'>체험용 모바일 프로토타입</h3>"), unsafe_allow_html=True)
     st.markdown("<hr style='margin: 15px 0 40px 0; border:0; border-top:2px solid #F0F0F0;'>", unsafe_allow_html=True)
 
     # --- 헤더 ---
     st.markdown("""
         <div class="landing-hero" style="text-align:center; padding-bottom: 20px;">
             <h1 class="landing-title">포동 PHODONG</h1>
-            <p class="landing-subtitle">아이의 소중한 순간들이</b>세상에 하나뿐인 동화책이 됩니다!</p>
+            <p class="landing-subtitle">아이의 소중한 순간들이<br>세상에 하나뿐인 동화책이 됩니다!</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -278,9 +278,9 @@ def main():
                 st.markdown("<div style='padding: 10px 5px;'>", unsafe_allow_html=True)
 
                 c_in1, c_in2 = st.columns(2)
-                with c_in1: child_name = st.text_input("아이 이름", value="포동이")
+                with c_in1: child_name = st.text_input("아이 이름", value="예) 민준")
                 with c_in2: age = st.slider("아이 연령", 3, 9, 5)
-                partner_name = st.text_input("함께하는 어른", value="엄마")
+                partner_name = st.text_input("단짝 이름", value="예) 포동이")
                 
                 c_sel1, c_sel2 = st.columns(2)
                 with c_sel1: genre = st.selectbox("장르", GENRE_OPTIONS)
