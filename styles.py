@@ -178,63 +178,81 @@ class DesignSystem:
             }
 
             /* === 📱 모바일 전용 스타일 (화면 너비 768px 이하) === */
-            /* 주의: 이 코드는 반드시 <style> 태그 안쪽에 있어야 합니다! */
             @media only screen and (max-width: 768px) {
                 
-                /* 1. 전체 여백 줄이기 */
+                /* 1. 전체 레이아웃 & 여백 최적화 */
                 .block-container {
                     padding-top: 1rem !important;
                     padding-bottom: 3rem !important;
-                    padding-left: 1rem !important;
-                    padding-right: 1rem !important;
+                    padding-left: 1.2rem !important; /* 좌우 여백을 조금 더 줌 */
+                    padding-right: 1.2rem !important;
                 }
 
-                /* 2. 제목 폰트 크기 축소 */
+                /* 2. [제목] 텍스트 줄바꿈 및 크기 최적화 */
                 .landing-title {
-                    font-size: 2.5rem !important;
+                    /* clamp(최소크기, 가변크기, 최대크기) -> 화면에 따라 부드럽게 변함 */
+                    font-size: clamp(2rem, 6vw, 3rem) !important; 
                     text-align: center;
+                    line-height: 1.3; /* 줄 간격 조절 */
+                    word-break: keep-all; /* ★핵심: 단어 중간에 줄바꿈 금지 */
+                    margin-bottom: 10px !important;
                 }
+                
+                /* 3. [부제목] 텍스트 최적화 */
                 .landing-subtitle {
-                    font-size: 1.1rem !important;
+                    font-size: 1rem !important;
                     text-align: center;
-                    margin-bottom: 20px !important;
+                    line-height: 1.6;
+                    color: #666;
+                    word-break: keep-all; /* 단어 단위로 예쁘게 줄바꿈 */
+                    margin-bottom: 30px !important;
                 }
 
-                /* 3. 단계별 가이드 세로 배치 */
+                /* 4. [흰색 박스] 크기 및 패딩 축소 */
+                .landing-action {
+                    padding: 25px 20px !important; /* 내부 여백 대폭 축소 (위아래, 좌우) */
+                    height: auto !important; /* 높이를 내용물에 딱 맞게 줄임 (중요!) */
+                    border-radius: 20px !important;
+                    margin-top: 10px; /* 위쪽 요소와 간격 */
+                    border: 2px solid var(--primary-soft);
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.05); /* 은은한 그림자 */
+                }
+
+                /* 5. [박스 내부 제목] "이야기 설정 & 사진 업로드" */
+                .action-header {
+                    font-size: 1.4rem !important; /* 글자 크기 줄임 */
+                    margin-bottom: 15px !important;
+                    word-break: keep-all;
+                }
+
+                /* 6. 단계별 가이드 (가로 -> 세로 배치) */
                 .step-container {
                     flex-direction: column;
-                    gap: 10px;
-                    margin-top: 20px;
+                    gap: 12px;
+                    margin-top: 10px;
                 }
                 .step-item {
                     padding: 15px;
+                    display: flex; /* 아이콘과 텍스트를 가로로 배치해서 공간 절약 */
+                    align-items: center;
+                    gap: 15px;
+                    text-align: left; /* 텍스트 왼쪽 정렬 */
                 }
+                .step-title { margin: 0 !important; font-size: 1.1rem !important; }
+                .step-desc { margin: 0 !important; font-size: 0.9rem !important; line-height: 1.2; }
 
-                /* 4. 입력 폼 박스 스타일 단순화 */
-                .landing-action {
-                    padding: 20px !important;
-                    border: 2px solid var(--primary-soft);
-                    box-shadow: none;
-                }
-
-                /* 5. 버튼 터치 영역 확대 */
+                /* 7. 버튼 터치 영역 확대 */
                 .stButton > button {
-                    height: 60px !important;
+                    height: 56px !important;
                     font-size: 1.1rem !important;
+                    border-radius: 12px !important;
                 }
 
-                /* 6. 폴라로이드 및 결과 카드 최적화 */
-                .polaroid-frame, .result-card, .content-box {
-                    padding: 15px !important;
-                }
-                
-                /* 7. 컬럼 강제 조정 (100% 너비) */
-                [data-testid="column"] {
-                    width: 100% !important;
-                    flex: 1 1 auto !important;
-                    min-width: unset !important;
-                }
+                /* 8. 기타 요소 */
+                [data-testid="column"] { width: 100% !important; flex: 1 1 auto !important; min-width: unset !important; }
+                .polaroid-frame, .result-card, .content-box { padding: 15px !important; }
             }
+
         </style>
         """, unsafe_allow_html=True)
 
