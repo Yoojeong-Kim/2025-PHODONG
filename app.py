@@ -10,24 +10,34 @@ from dotenv import load_dotenv
 import google.generativeai as genai
 from gtts import gTTS
 
-import styles  # styles.py에 정의된 디자인/아이콘 모듈 임포트
+# styles.py 임포트 (디자인 시스템)
+import styles
 
 # ==============================================================================
-# [초기 설정] 환경변수, 로깅, 상수 정의 (Source B에서 가져옴)
+# 1. ⚙️ CORE CONFIGURATION & CONSTANTS
 # ==============================================================================
-# .env 로드
 load_dotenv()
+
+# 페이지 설정
+st.set_page_config(
+    page_title="포동 PHODONG",
+    page_icon="🧸",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
-logger = logging.getLogger("PhodongCore")
+logger = logging.getLogger("PhodongApp")
 
 # 상수 정의
-DEFAULT_MODEL = "gemini-1.5-flash" # 또는 gemini-pro-vision 등 사용 가능한 모델
+DEFAULT_MODEL = "gemini-1.5-flash"
 GENRE_OPTIONS = ["전래동화", "판타지", "히어로", "요정", "일상", "자동차", "공주/왕자", "추리", "우주", "로봇", "동물", "공룡"]
-PURPOSE_OPTIONS = ["안전", "예절&규칙", "문화", "어휘력", "세계&다양성", "사고력", "기초과학", "자신감"]
+PURPOSE_OPTIONS = ["안전 교육", "예절&규칙", "생활 습관", "어휘력 향상", "세계&다양성", "창의력/사고력", "기초과학", "자존감 높이기"]
 
-# 데이터 클래스 정의
+# ==============================================================================
+# 2. 📦 DATA STRUCTURES
+# ==============================================================================
 @dataclass
 class StoryConfig:
     child_name: str = ""
@@ -47,62 +57,49 @@ class StoryCard:
     image_key: Optional[str] = None
 
 # ==============================================================================
-# [로직] 유틸리티 및 AI 서비스 클래스 (Source B에서 완성된 코드 가져옴)
+# 3. 🧠 AI SERVICE LAYER
 # ==============================================================================
 class Utils:
     @staticmethod
     def clean_json_text(text):
-        """Gemini 응답에서 마크다운 코드 블록 제거 및 JSON 파싱 준비"""
+        """Gemini 응답 정리"""
         text = text.strip()
-        # 마크다운 코드 블록 제거 (```json ... ```)
-        if text.startswith("```json"):
-            text = text[7:]
-        elif text.startswith("```"):
-            text = text[3:]
-        
-        if text.endswith("```"):
-            text = text[:-3]
-        
+        if text.startswith("```json"): text = text[7:]
+        elif text.startswith("```"): text = text[3:]
+        if text.endswith("```"): text = text[:-3]
         return text.strip()
 
 class PhodongService:
     def __init__(self):
         self.api_key = os.getenv("GOOGLE_API_KEY")
         if not self.api_key:
-            st.error("GOOGLE_API_KEY가 설정되지 않았습니다. .env 파일을 확인해주세요.")
-            st.stop() # 키가 없으면 더 이상 진행하지 않음
+            st.error("🚨 API Key가 없습니다. .env 파일을 확인해주세요.")
+            st.stop()
         
         genai.configure(api_key=self.api_key)
         self.model = genai.GenerativeModel(DEFAULT_MODEL)
 
     def analyze_image_and_create_character(self, image: Image.Image, config: StoryConfig) -> Optional[StoryCard]:
-        """이미지를 분석하여 캐릭터 정보를 JSON으로 추출"""
+        """[1단계] 이미지 분석 및 캐릭터 생성"""
         prompt = f"""
-        당신은 아이들을 위한 동화 작가이자 캐릭터 디자이너입니다.
-        제공된 이미지를 분석하여 다음 정보를 JSON 형식으로 추출해주세요.
-        
-        [설정]
-        - 대상 연령: {config.age}세
-        - 장르: {config.genre}
-        - 목적: {config.purpose}
+        당신은 {config.age}세 어린이를 위한 '{config.genre}' 장르의 전문 동화 작가입니다.
+        업로드된 이미지를 분석하여 동화의 주인공 캐릭터를 설정해주세요.
+
+        [분석 설정]
+        - 장르: {config.genre} (이 분위기에 맞는 캐릭터로 해석하세요)
+        - 교육 목표: {config.purpose} (이 목표를 달성할 수 있는 성격을 부여하세요)
         
         [출력 포맷 (JSON)]
         {{
-            "character_name": "캐릭터에게 어울리는 귀여운 한국어 이름",
-            "character_type": "사물/동물의 종류 (예: 곰인형, 자동차, 컵)",
-            "personality": "성격 (한 문장)",
-            "magic_power": "이 캐릭터가 가진 작고 귀여운 마법 능력 (한 문장)"
+            "character_name": "아이들이 좋아할 귀여운 한국어 이름",
+            "character_type": "사물/동물의 종류 (예: 용감한 소방차, 마법 곰인형)",
+            "personality": "성격 (교육 목표와 관련된 긍정적 성격 1문장)",
+            "magic_power": "동화적 상상력이 담긴 특수 능력 (1문장)"
         }}
-        
-        반드시 순수 JSON만 출력하세요.
         """
-        
         try:
-            # spinner는 호출하는 쪽에서 제어하도록 제거
             response = self.model.generate_content([prompt, image])
-            cleaned_text = Utils.clean_json_text(response.text)
-            data = json.loads(cleaned_text)
-            
+            data = json.loads(Utils.clean_json_text(response.text))
             return StoryCard(
                 character_name=data.get("character_name", "알 수 없음"),
                 character_type=data.get("character_type", "-"),
@@ -110,54 +107,48 @@ class PhodongService:
                 magic_power=data.get("magic_power", "-")
             )
         except Exception as e:
-            logger.error(f"이미지 분석 실패: {e}")
-            # st.error는 호출하는 쪽에서 처리
+            logger.error(f"Character Gen Error: {e}")
             return None
 
     def generate_story_segment(self, card: StoryCard, config: StoryConfig) -> Optional[StoryCard]:
-        """캐릭터 정보를 바탕으로 짧은 동화와 대사 생성"""
+        """[2단계] 동화 내용 생성"""
         prompt = f"""
-        다음 캐릭터를 주인공으로 한 짧은 동화의 도입부를 작성해주세요.
-        
-        [캐릭터 정보]
-        - 이름: {card.character_name}
-        - 종류: {card.character_type}
-        - 성격: {card.personality}
-        - 능력: {card.magic_power}
-        
-        [동화 설정]
-        - 독자: {config.child_name} ({config.age}세 어린이)
-        - 파트너: {config.partner_name} (부모님/선생님 등)
+        당신은 베스트셀러 동화 작가입니다. 아래 설정에 맞춰 짧은 동화의 한 장면을 작성하세요.
+
+        [핵심 설정]
+        - 독자: {config.child_name} ({config.age}세)
+        - 함께 읽는 사람: {config.partner_name}
         - 장르: {config.genre}
-        - 교육 목표: {config.purpose}
-        
-        [요청 사항]
-        1. {config.age}세 아이가 이해하기 쉬운 따뜻한 어조로 작성하세요.
-        2. 'story_narration'은 상황을 설명하는 지문입니다. (3~4문장)
-        3. 'dialogue'는 캐릭터가 아이에게 말을 거는 대사입니다. (1~2문장)
-        
+        - ★교육 목표: {config.purpose} (이야기를 통해 아이가 이 가치를 배우게 하세요)
+
+        [캐릭터]
+        - 이름: {card.character_name} ({card.character_type})
+        - 성격: {card.personality}
+
+        [작성 요구사항]
+        1. 말투: {config.age}세 아이가 이해하기 쉬운 다정하고 생동감 넘치는 '해요체'.
+        2. 내용: 교육 목표가 자연스럽게 녹아든 흥미진진한 도입부.
+        3. story_narration: 상황을 묘사하는 지문 (3~4문장).
+        4. dialogue: 캐릭터가 아이({config.child_name})에게 직접 말을 거는 대사 (1~2문장).
+
         [출력 포맷 (JSON)]
         {{
-            "story_narration": "동화 내용...",
-            "dialogue": "캐릭터의 대사..."
+            "story_narration": "동화 지문 내용...",
+            "dialogue": "캐릭터 대사..."
         }}
         """
-        
         try:
             response = self.model.generate_content(prompt)
-            cleaned_text = Utils.clean_json_text(response.text)
-            data = json.loads(cleaned_text)
-            
-            # 기존 카드에 내용 업데이트
+            data = json.loads(Utils.clean_json_text(response.text))
             card.story_narration = data.get("story_narration", "")
             card.dialogue = data.get("dialogue", "")
             return card
         except Exception as e:
-            logger.error(f"스토리 생성 실패: {e}")
+            logger.error(f"Story Gen Error: {e}")
             return None
 
     def text_to_speech(self, text: str) -> Optional[io.BytesIO]:
-        """gTTS를 사용해 텍스트를 음성으로 변환"""
+        """[3단계] TTS 생성"""
         try:
             if not text: return None
             tts = gTTS(text=text, lang='ko')
@@ -166,191 +157,163 @@ class PhodongService:
             mp3_fp.seek(0)
             return mp3_fp
         except Exception as e:
-            logger.error(f"TTS 생성 실패: {e}")
+            logger.error(f"TTS Error: {e}")
             return None
 
 # ==============================================================================
-# [필수 1] 페이지 기본 설정 (Source A)
+# 4. 🖥️ UI / VIEW LAYER
 # ==============================================================================
-st.set_page_config(
-    page_title="포동 PHODONG",
-    page_icon="🧸",
-    layout="wide",
-    initial_sidebar_state="collapsed" # 사이드바 기본은 닫힘 상태
-)
 
-# ==============================================================================
-# [메인 UI 및 실행 로직] (Source A 디자인 + Source B 로직 통합)
-# ==============================================================================
 def main():
-    # 0. 서비스 인스턴스 초기화
+    # 0. 초기화
+    styles.DesignSystem.inject_css() # CSS 주입
     service = PhodongService()
 
-    # 1. 스타일 주입
-    styles.DesignSystem.inject_css()
-
-    # --------------------------------------------------------------------------
-    # [사이드바] 설정 영역 (Source B에서 가져옴)
-    # --------------------------------------------------------------------------
-    with st.sidebar:
-        st.header("⚙️ 이야기 설정")
-        st.caption("아이에게 맞는 이야기를 위해 설정해주세요.")
-        child_name = st.text_input("아이 이름 (닉네임)", value="포동이")
-        age = st.slider("아이 연령", 3, 9, 5)
-        partner_name = st.text_input("함께하는 어른", value="엄마")
-        
-        st.markdown("---")
-        selected_genre = st.selectbox("이야기 장르", GENRE_OPTIONS)
-        selected_purpose = st.selectbox("교육 목표", PURPOSE_OPTIONS)
-        
-        # 설정 객체 생성
-        config = StoryConfig(
-            child_name=child_name,
-            partner_name=partner_name,
-            age=age,
-            genre=selected_genre,
-            purpose=selected_purpose
-        )
-
-    # --------------------------------------------------------------------------
-    # [메인 콘텐츠] 헤더 및 랜딩 페이지 디자인 (Source A)
-    # --------------------------------------------------------------------------
-    # 헤더 섹션
+    # 1. 헤더 (레퍼런스 스타일)
     bear = styles.ArtWork.get_bear(45)
     c1, c2 = st.columns([0.8, 11.2])
     with c1: st.markdown(f"<div>{bear}</div>", unsafe_allow_html=True)
     with c2: 
         st.markdown(styles.Utils.clean_html("""
             <div style="display:flex; align-items:center; height:100%;">
-                <h3 class='font-heading' style='color:#FF9EAA; margin:0; font-size:1.8rem;'>mobile prototype</h3>
+                <h3 class='font-heading' style='color:#FF9EAA; margin:0; font-size:1.8rem;'>포동 PHODONG</h3>
             </div>
         """), unsafe_allow_html=True)
     st.markdown("<hr style='margin: 15px 0 40px 0; border:0; border-top:2px solid #F0F0F0;'>", unsafe_allow_html=True)
 
-    # 메인 2단 레이아웃
+    # 2. 메인 레이아웃 (2컬럼)
     left_col, right_col = st.columns([1.3, 1], gap="large")
 
+    # --- [왼쪽] 소개 및 가이드 ---
     with left_col:
-        # 좌측: 제목 및 3단계 가이드 (디자인 유지)
         st.markdown("""
-            <h1 class="landing-title">포동 PHODONG</h1>
-            <p class="landing-subtitle">아이의 소중한 순간들이 세상에 하나뿐인 동화책이 됩니다.</p>
+            <div class="landing-hero">
+                <h1 class="landing-title">포동 PHODONG</h1>
+                <p class="landing-subtitle">
+                    아이의 소중한 순간들이<br>
+                    세상에 하나뿐인 <b>동화책</b>이 됩니다.
+                </p>
+            </div>
         """, unsafe_allow_html=True)
-        
+
         folder_icon = styles.ArtWork.get_folder(40)
         bear_icon = styles.ArtWork.get_bear(40)
         book_icon = styles.ArtWork.get_book_cover(40)
-        
+
         st.markdown(styles.Utils.clean_html(f"""
             <div class="step-container">
                 <div class="step-item step-1">
                     <div>{folder_icon}</div>
-                    <div class="step-title" style="color:#A0C4FF;">조각 모으기</div>
-                    <div class="step-desc">이야기를 만들기 위한 사진조각을 준비해요.</div>
+                    <div class="step-title" style="color:#A0C4FF;">1. 정보 입력</div>
+                    <div class="step-desc">아이의 이름과 좋아하는 장르를 알려주세요.</div>
                 </div>
                 <div class="step-item step-2">
                     <div>{bear_icon}</div>
-                    <div class="step-title" style="color:#FFD580;">마법부리기</div>
-                    <div class="step-desc">포동이가 재미있는 이야기를 만들어요.</div>
+                    <div class="step-title" style="color:#FFD580;">2. 사진 찰칵</div>
+                    <div class="step-desc">장난감이나 물건 사진을 올려주세요.</div>
                 </div>
                 <div class="step-item step-3">
                     <div>{book_icon}</div>
-                    <div class="step-title" style="color:#FF9EAA;">동화책 완성</div>
-                    <div class="step-desc">예쁜 표지와 목소리를 선물받아요.</div>
+                    <div class="step-title" style="color:#FF9EAA;">3. 이야기 완성</div>
+                    <div class="step-desc">AI가 들려주는 마법 같은 이야기를 만나요.</div>
                 </div>
             </div>
         """), unsafe_allow_html=True)
 
-    # --------------------------------------------------------------------------
-    # [우측 액션 카드 & 로직 연결] (핵심 통합 부분)
-    # --------------------------------------------------------------------------
-    result_card = None # 결과 저장을 위한 변수
-    audio_file = None
-
+    # --- [오른쪽] 입력 폼 (정보 입력 -> 사진 업로드 -> 버튼) ---
     with right_col:
         st.markdown(styles.Utils.clean_html("""
             <div class="landing-action">
                 <div class="action-header">
-                    👇 여기로 이야기 조각을 보내주세요!
+                    👇 여기서 이야기를 시작해요!
                 </div>
-            </div>
         """), unsafe_allow_html=True)
+
+        # [입력 1] 기본 정보 (HTML div 밖에서 Streamlit 위젯 사용)
+        col_input1, col_input2 = st.columns(2)
+        with col_input1:
+            child_name = st.text_input("아이 이름", value="포동이")
+        with col_input2:
+            age = st.slider("아이 연령", 3, 9, 5)
         
-        # 파일 업로더
-        uploaded_file = st.file_uploader("파일 업로드", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
+        partner_name = st.text_input("함께하는 어른 (호칭)", value="엄마")
         
-        # 실행 버튼 (type="primary"로 강조)
+        col_select1, col_select2 = st.columns(2)
+        with col_select1:
+            genre = st.selectbox("이야기 장르", GENRE_OPTIONS)
+        with col_select2:
+            purpose = st.selectbox("교육 목표", PURPOSE_OPTIONS)
+
+        st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+
+        # [입력 2] 파일 업로드
+        uploaded_file = st.file_uploader("주인공 사진 업로드", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
+        
+        # [실행] 버튼
         process_btn = st.button("✨ 이야기 만들기 시작!", type="primary", use_container_width=True)
 
-        # [로직 실행 조건] 버튼 클릭 AND 파일 업로드됨
-        if process_btn and uploaded_file:
-            image = Image.open(uploaded_file)
-            # 우측 카드에 업로드된 이미지 작게 보여주기
-            st.image(image, caption="선택한 사진", use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True) # landing-action 닫기
 
-            # 전체 진행 과정을 스피너로 감쌈
-            with st.spinner("🧸 포동이가 사진을 보며 이야기를 만들고 있어요... (잠시만 기다려주세요!)"):
-                # 1. 이미지 분석
-                story_card = service.analyze_image_and_create_character(image, config)
+        # --- 로직 실행 ---
+        if process_btn:
+            if uploaded_file:
+                # 설정 객체 생성
+                config = StoryConfig(child_name, partner_name, age, genre, purpose)
+                image = Image.open(uploaded_file)
                 
-                if story_card:
-                    # 2. 스토리 생성
-                    final_card = service.generate_story_segment(story_card, config)
+                # 작은 미리보기
+                st.image(image, caption="선택한 사진", width=150)
+
+                with st.spinner("🧸 포동이가 사진을 보며 이야기를 만들고 있어요..."):
+                    # 1. 이미지 분석
+                    story_card = service.analyze_image_and_create_character(image, config)
                     
-                    if final_card:
-                        # 3. TTS 생성
-                        audio_fp = service.text_to_speech(final_card.dialogue)
+                    if story_card:
+                        # 2. 스토리 생성
+                        final_card = service.generate_story_segment(story_card, config)
                         
-                        # 결과 저장을 위해 변수에 할당
-                        result_card = final_card
-                        audio_file = audio_fp
+                        if final_card:
+                            # 3. 오디오 생성
+                            audio_fp = service.text_to_speech(final_card.dialogue)
+                            
+                            # --- 결과 표시 (확장 패널 자동 열림) ---
+                            st.divider()
+                            with st.expander("✨ 완성된 이야기 열기", expanded=True):
+                                st.success(f"**{final_card.character_name}** 친구가 찾아왔어요!")
+                                
+                                # 결과 레이아웃
+                                r_c1, r_c2 = st.columns([1, 2])
+                                with r_c1:
+                                    st.markdown(f"""
+                                    <div class='profile-group'>
+                                        <span class='badge-pill badge-pink'>{final_card.character_name}</span><br>
+                                        <span class='badge-pill badge-yellow'>{final_card.personality}</span>
+                                        <div style='margin-top:10px; font-size:0.9rem; color:#666;'>
+                                            <b>종류:</b> {final_card.character_type}<br>
+                                            <b>능력:</b> {final_card.magic_power}
+                                        </div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                    st.image(image, use_container_width=True)
+                                
+                                with r_c2:
+                                    st.markdown(f"""
+                                    <div class='dialogue-box'>
+                                        <div class='dialogue-text'>"{final_card.dialogue}"</div>
+                                    </div>
+                                    <div class='context-box'>
+                                        {final_card.story_narration}
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                    
+                                    if audio_fp:
+                                        st.audio(audio_fp, format='audio/mp3')
+                        else:
+                            st.error("이야기를 만드는 데 실패했어요.")
                     else:
-                        st.error("이야기를 생성하는 데 실패했어요. 다시 시도해주세요.")
-                else:
-                    st.error("캐릭터를 분석하는 데 실패했어요. 사진을 확인해주세요.")
-                    
-        elif process_btn and not uploaded_file:
-            st.warning("먼저 사진 조각(이미지 파일)을 올려주세요!")
-
-    # --------------------------------------------------------------------------
-    # [결과 표시 영역] 메인 레이아웃 하단에 넓게 표시
-    # --------------------------------------------------------------------------
-    if result_card:
-        st.divider() # 구분선
-        # 결과를 보여주는 확장 패널 (자동으로 열림)
-        with st.expander("✨ 완성된 이야기 열기", expanded=True):
-            st.success(f"짜잔! **{result_card.character_name}** 친구가 찾아왔어요!")
-            
-            col_res1, col_res2 = st.columns([1, 2])
-            
-            with col_res1:
-                # 캐릭터 정보 및 원본 이미지
-                st.markdown(f"""
-                ### 🔍 캐릭터 정보
-                - **이름:** {result_card.character_name}
-                - **종류:** {result_card.character_type}
-                - **성격:** {result_card.personality}
-                - **능력:** {result_card.magic_power}
-                """)
-                if uploaded_file:
-                     st.image(uploaded_file, caption=f"{result_card.character_name}의 모습", use_container_width=True)
-
-            with col_res2:
-                # 스토리 및 오디오
-                st.markdown("### 📖 오늘의 이야기 도입부")
-                
-                # 지문 박스 디자인 적용 (styles.py 활용 예시 - 필요시 수정)
-                st.markdown(f"""
-                <div style="background-color:#fdf6f0; padding:20px; border-radius:15px; margin-bottom:20px;">
-                    {result_card.story_narration}
-                </div>
-                """, unsafe_allow_html=True)
-                
-                st.markdown(f"**💬 {result_card.character_name}의 목소리:**")
-                st.write(f"\"{result_card.dialogue}\"")
-                
-                if audio_file:
-                    st.audio(audio_file, format='audio/mp3')
+                        st.error("캐릭터를 분석하지 못했어요.")
+            else:
+                st.warning("사진을 먼저 올려주세요!")
 
 if __name__ == "__main__":
     main()
