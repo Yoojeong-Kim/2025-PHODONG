@@ -1,168 +1,208 @@
-import os
-import json
-import io
-import re
-import logging
-import base64
-from dataclasses import dataclass
-from typing import Optional, List
-from datetime import datetime
-
-import google.generativeai as genai
-from gtts import gTTS
-from PIL import Image
-from dotenv import load_dotenv
-
-# .env 로드
-load_dotenv()
-
-# 로깅
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
-logger = logging.getLogger("PhodongCore")
-
-# 상수
-DEFAULT_MODEL = "gemini-2.0-flash"
-GENRE_OPTIONS = ["전래동화", "판타지", "히어로", "요정", "일상", "자동차", "공주/왕자", "추리", "우주", "로봇", "동물", "공룡"]
-PURPOSE_OPTIONS = ["안전", "예절&규칙", "문화", "어휘력", "세계&다양성", "사고력", "기초과학", "자신감"]
-
-@dataclass
-class StoryConfig:
-    child_name: str = "" 
-    partner_name: str = ""
-    age: str = "" 
-    genre: str = GENRE_OPTIONS[0]
-    purpose: str = PURPOSE_OPTIONS[0]
-
-@dataclass
-class StoryCard:
-    character_name: str = "알 수 없음"
-    character_type: str = "-"
-    personality: str = "-"
-    magic_power: str = "-"
-    story_narration: str = ""
-    dialogue: str = ""
-    image_key: Optional[str] = None 
-
-class Utils:
-    @staticmethod
+@staticmethod
     def clean_json_text(text):
+        """Gemini 응답에서 마크다운 코드 블록 제거 및 JSON 파싱 준비"""
         text = text.strip()
-        if text.startswith("```json"): text = text[7:]
-        if text.startswith("```"): text = text[:text.rfind("```")]
+        # 마크다운 코드 블록 제거 (```json ... ```)
+        if text.startswith("```json"):
+            text = text[7:]
+        elif text.startswith("```"):
+            text = text[3:]
+        
+        if text.endswith("```"):
+            text = text[:-3]
+        
         return text.strip()
 
-    @staticmethod
-    def get_image_base64(pil_image: Image.Image) -> Optional[str]:
-        if not pil_image: return None
-        try:
-            buffered = io.BytesIO()
-            pil_image.save(buffered, format="JPEG")
-            return base64.b64encode(buffered.getvalue()).decode("ascii")
-        except: return None
+# ==============================================================================
+# [로직] AI 서비스 클래스 (Gemini & TTS)
+# ==============================================================================
 
-class LLMService:
-    def __init__(self, api_key=None):
-        self.api_key = api_key if api_key else os.getenv("GOOGLE_API_KEY")
-        if not self.api_key: raise ValueError("API Key가 없습니다.")
+class PhodongService:
+    def __init__(self):
+        self.api_key = os.getenv("GOOGLE_API_KEY")
+        if not self.api_key:
+            st.error("GOOGLE_API_KEY가 설정되지 않았습니다. .env 파일을 확인해주세요.")
+            return
+        
         genai.configure(api_key=self.api_key)
+        self.model = genai.GenerativeModel(DEFAULT_MODEL)
 
-        generation_config = genai.types.GenerationConfig(
-            temperature=1.0,
-            response_mime_type="application/json"
-        )
-        self.model = genai.GenerativeModel(DEFAULT_MODEL, generation_config=generation_config)
-
-    def generate_story_card(self, image_file, config: StoryConfig) -> StoryCard:
+    def analyze_image_and_create_character(self, image: Image.Image, config: StoryConfig) -> Optional[StoryCard]:
+        """이미지를 분석하여 캐릭터 정보를 JSON으로 추출"""
+        prompt = f"""
+        당신은 아이들을 위한 동화 작가이자 캐릭터 디자이너입니다.
+        제공된 이미지를 분석하여 다음 정보를 JSON 형식으로 추출해주세요.
+        
+        [설정]
+        - 대상 연령: {config.age}세
+        - 장르: {config.genre}
+        - 목적: {config.purpose}
+        
+        [출력 포맷 (JSON)]
+        {{
+            "character_name": "캐릭터에게 어울리는 귀여운 한국어 이름",
+            "character_type": "사물/동물의 종류 (예: 곰인형, 자동차, 컵)",
+            "personality": "성격 (한 문장)",
+            "magic_power": "이 캐릭터가 가진 작고 귀여운 마법 능력 (한 문장)"
+        }}
+        
+        반드시 순수 JSON만 출력하세요.
+        """
+        
         try:
-            pil_image = Image.open(image_file)
-            resized_image = pil_image.copy()
-            resized_image.thumbnail((320, 320))
-
-            prompt = [
-                f"""
-                당신은 {config.age if config.age else 5}세 아이를 위한 베스트셀러 동화 작가입니다.
-                사진 속 사물이나 풍경을 의인화하여 생동감 넘치는 캐릭터를 만들고, 
-                마치 실제 동화책의 한 페이지를 읽는 듯한 아름답고 구체적인 문장으로 이야기를 서술하세요.
-
-                [설정]
-                - 장르: {config.genre}
-                - 교육 목적: {config.purpose}
-                - 주인공 이름: {config.child_name}
-                - 짝꿍(친구) 이름: {config.partner_name}
-
-                [필수 요구사항]
-                1. **story_narration (상황 설명)**: 단순한 요약이 아니라, **눈앞에 그려지듯 생생하고 감성적인 서술형 문장**으로 작성하세요. (최소 2~3문장 이상)
-                   - 나쁜 예: "친구가 꽃가루를 뿌려 위험을 알린다."
-                   - 좋은 예: "그때였어요! 꼬마 요정 핑키가 반짝이는 날개를 파닥이며 나타났어요. '얘들아, 조심해!' 핑키는 주머니에서 황금빛 꽃가루를 후우~ 불어 친구들에게 위험을 알렸답니다."
-                2. **dialogue (대사)**: 캐릭터의 성격이 드러나는 말투(해요체)를 사용하세요.
-                3. **character_name**: 장르에 어울리는 기발한 이름을 지어주세요.
-
-                [출력 형식 (JSON)]
-                {{
-                    "character_name": "캐릭터 이름",
-                    "character_type": "원래 사물/동물",
-                    "magic_power": "마법 능력",
-                    "personality": "성격",
-                    "dialogue": "캐릭터의 대사",
-                    "story_narration": "동화책 서술형 상황 묘사 (길고 구체적으로)"
-                }}
-                """,
-                resized_image
-            ]
-            
-            safety = [{"category": c, "threshold": "BLOCK_NONE"} for c in ["HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT"]]
-            
-            response = self.model.generate_content(prompt, generation_config=genai.types.GenerationConfig(response_mime_type="application/json"), safety_settings=safety)
-            
-            if response.text:
-                data = json.loads(Utils.clean_json_text(response.text))
-                if isinstance(data, list):
-                    if len(data) > 0:
-                        data = data[0]
-                    else:
-                        data = {} # 빈 리스트가 올 경우 대비
+            with st.spinner("🧸 포동이가 사진 속 친구를 살펴보고 있어요..."):
+                response = self.model.generate_content([prompt, image])
+                cleaned_text = Utils.clean_json_text(response.text)
+                data = json.loads(cleaned_text)
+                
                 return StoryCard(
-                    character_name=data.get("character_name", "친구"),
-                    character_type=data.get("character_type", "요정"),
-                    personality=data.get("personality", "밝음"),
-                    magic_power=data.get("magic_power", "꿈꾸기"),
-                    story_narration=data.get("story_narration", "새로운 친구를 만났어요."),
-                    dialogue=data.get("dialogue", "안녕! 우리 같이 놀자."),
-                    image_key=f"img_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
+                    character_name=data.get("character_name", "알 수 없음"),
+                    character_type=data.get("character_type", "-"),
+                    personality=data.get("personality", "-"),
+                    magic_power=data.get("magic_power", "-")
                 )
         except Exception as e:
-            logger.error(f"LLM Error: {e}")
-            return StoryCard(character_name="오류 요정", story_narration="잠시 연결이 불안정했어요.", dialogue="다시 시도해볼까?", image_key=f"err_{datetime.now().strftime('%Y%m%d%H%M%S%f')}")
-        return StoryCard()
+            logger.error(f"이미지 분석 실패: {e}")
+            st.error("캐릭터를 분석하는 중 오류가 발생했어요.")
+            return None
 
-    def generate_final_story(self, cards: List[StoryCard], config: StoryConfig) -> str:
-        scenes = "\n".join([f"- {c.character_name}: \"{c.dialogue}\" ({c.story_narration})" for c in cards])
-
+    def generate_story_segment(self, card: StoryCard, config: StoryConfig) -> Optional[StoryCard]:
+        """캐릭터 정보를 바탕으로 짧은 동화와 대사 생성"""
         prompt = f"""
-        당신은 세계적인 동화 작가입니다. 
-        아래의 장면 조각들을 모아 '{config.child_name}'와 '{config.partner_name}'가 주인공인 하나의 완벽하고 아름다운 동화를 완성하세요.
-
-        [조건]
-        1. **제목**: 첫 줄에 창의적인 제목을 적어주세요.
-        2. **문체**: 아이에게 읽어주는 듯한 다정하고 부드러운 '해요체'를 사용하세요.
-        3. **구성**: 기승전결이 자연스럽게 이어지도록 장면 사이의 연결 문장을 풍부하게 추가하세요.
-        4. **분량**: 각 장면의 묘사를 살려 충분히 길고 풍성하게 작성하세요.
-
-        [장면 내용]
-        {scenes}
+        다음 캐릭터를 주인공으로 한 짧은 동화의 도입부를 작성해주세요.
+        
+        [캐릭터 정보]
+        - 이름: {card.character_name}
+        - 종류: {card.character_type}
+        - 성격: {card.personality}
+        - 능력: {card.magic_power}
+        
+        [동화 설정]
+        - 독자: {config.child_name} ({config.age}세 어린이)
+        - 파트너: {config.partner_name} (부모님/선생님 등)
+        - 장르: {config.genre}
+        - 교육 목표: {config.purpose}
+        
+        [요청 사항]
+        1. {config.age}세 아이가 이해하기 쉬운 따뜻한 어조로 작성하세요.
+        2. 'story_narration'은 상황을 설명하는 지문입니다. (3~4문장)
+        3. 'dialogue'는 캐릭터가 아이에게 말을 거는 대사입니다. (1~2문장)
+        
+        [출력 포맷 (JSON)]
+        {{
+            "story_narration": "동화 내용...",
+            "dialogue": "캐릭터의 대사..."
+        }}
         """
-
-        try: return self.model.generate_content(prompt).text
-        except: return "이야기 생성에 실패했어요"
-
-class AudioService:
-    @staticmethod
-    def create(text: str) -> Optional[bytes]:
+        
         try:
-            clean = re.sub(r"[\*\#]", "", text)
-            tts = gTTS(text=clean[:5000], lang='ko', slow=False)
-            fp = io.BytesIO()
-            tts.write_to_fp(fp)
-            fp.seek(0)
-            return fp.read()
-        except: return None
+            with st.spinner("📖 포동이가 이야기를 짓고 있어요..."):
+                response = self.model.generate_content(prompt)
+                cleaned_text = Utils.clean_json_text(response.text)
+                data = json.loads(cleaned_text)
+                
+                # 기존 카드에 내용 업데이트
+                card.story_narration = data.get("story_narration", "")
+                card.dialogue = data.get("dialogue", "")
+                return card
+        except Exception as e:
+            logger.error(f"스토리 생성 실패: {e}")
+            st.error("이야기를 만드는 중 오류가 발생했어요.")
+            return None
+
+    def text_to_speech(self, text: str) -> Optional[io.BytesIO]:
+        """gTTS를 사용해 텍스트를 음성으로 변환"""
+        try:
+            tts = gTTS(text=text, lang='ko')
+            mp3_fp = io.BytesIO()
+            tts.write_to_fp(mp3_fp)
+            mp3_fp.seek(0)
+            return mp3_fp
+        except Exception as e:
+            logger.error(f"TTS 생성 실패: {e}")
+            return None
+
+# ==============================================================================
+# [UI] 메인 화면
+# ==============================================================================
+
+def main():
+    # 스타일 적용 (styles.py에 apply_custom_css 함수가 있다고 가정)
+    if hasattr(styles, 'apply_custom_css'):
+        styles.apply_custom_css()
+    else:
+        st.markdown("<style>.stApp { background-color: #f9f9f9; }</style>", unsafe_allow_html=True)
+
+    st.title("📸 포동 PHODONG - 나만의 포토 스토리북")
+    st.markdown("##### 우리 집 물건들이 들려주는 신비한 이야기")
+
+    # 서비스 인스턴스 초기화
+    service = PhodongService()
+
+    # 사이드바: 사용자 설정
+    with st.sidebar:
+        st.header("⚙️ 이야기 설정")
+        child_name = st.text_input("아이 이름 (닉네임)", value="포동이")
+        age = st.slider("아이 연령", 3, 9, 5)
+        partner_name = st.text_input("함께하는 어른", value="엄마")
+        
+        st.markdown("---")
+        selected_genre = st.selectbox("이야기 장르", GENRE_OPTIONS)
+        selected_purpose = st.selectbox("교육 목표", PURPOSE_OPTIONS)
+        
+        config = StoryConfig(
+            child_name=child_name,
+            partner_name=partner_name,
+            age=age,
+            genre=selected_genre,
+            purpose=selected_purpose
+        )
+
+    # 메인 영역: 이미지 업로드
+    uploaded_file = st.file_uploader("이야기의 주인공이 될 사진을 올려주세요! (장난감, 인형, 컵 등)", type=["jpg", "png", "jpeg"])
+
+    if uploaded_file is not None:
+        image = Image.open(uploaded_file)
+        
+        # 레이아웃 분할
+        col1, col2 = st.columns([1, 1.5])
+        
+        with col1:
+            st.image(image, caption="업로드된 사진", use_container_width=True)
+            process_btn = st.button("✨ 이야기 만들기 시작!", use_container_width=True, type="primary")
+
+        # 버튼 클릭 시 로직 수행
+        if process_btn:
+            with col2:
+                # 1. 이미지 분석 & 캐릭터 생성
+                story_card = service.analyze_image_and_create_character(image, config)
+                
+                if story_card:
+                    st.success(f"짜잔! **{story_card.character_name}** 친구를 발견했어요!")
+                    
+                    # 캐릭터 카드 시각화 (간단한 정보 표시)
+                    with st.expander("🔍 캐릭터 정보 보기", expanded=True):
+                        st.markdown(f"""
+                        - **이름:** {story_card.character_name}
+                        - **종류:** {story_card.character_type}
+                        - **성격:** {story_card.personality}
+                        - **능력:** {story_card.magic_power}
+                        """)
+
+                    # 2. 스토리 생성
+                    final_card = service.generate_story_segment(story_card, config)
+                    
+                    if final_card:
+                        st.markdown("### 📖 오늘의 이야기")
+                        st.info(final_card.story_narration)
+                        
+                        st.markdown(f"**💬 {final_card.character_name}의 말:**")
+                        st.write(f"\"{final_card.dialogue}\"")
+                        
+                        # 3. 오디오 생성 (대사 부분)
+                        audio_fp = service.text_to_speech(final_card.dialogue)
+                        if audio_fp:
+                            st.audio(audio_fp, format='audio/mp3')
+
+if __name__ == "__main__":
+    main()
