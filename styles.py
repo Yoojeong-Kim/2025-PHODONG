@@ -65,8 +65,7 @@ class ArtWork:
         """라이브 페이지용 카메라 렌즈 아이콘"""
         return f"""
         <svg width="{size}" height="{size}" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="32" cy="32" r="30" fill="#FF9EAA"/> <!-- 핑크 포인트 -->
-            <circle cx="32" cy="32" r="24" fill="#333"/>
+            <circle cx="32" cy="32" r="30" fill="#FF9EAA"/> <circle cx="32" cy="32" r="24" fill="#333"/>
             <circle cx="32" cy="32" r="12" fill="#111" stroke="#555" stroke-width="2"/>
             <circle cx="38" cy="26" r="4" fill="white" opacity="0.6"/>
         </svg>
@@ -176,6 +175,65 @@ class DesignSystem:
                 background: white; padding: 30px; border-radius: var(--radius-lg);
                 box-shadow: var(--shadow-soft); border: 2px solid #FFF0F5;
                 margin-bottom: 20px;
+            }
+
+            /* === 📱 모바일 전용 스타일 (화면 너비 768px 이하) === */
+            /* 주의: 이 코드는 반드시 <style> 태그 안쪽에 있어야 합니다! */
+            @media only screen and (max-width: 768px) {
+                
+                /* 1. 전체 여백 줄이기 */
+                .block-container {
+                    padding-top: 1rem !important;
+                    padding-bottom: 3rem !important;
+                    padding-left: 1rem !important;
+                    padding-right: 1rem !important;
+                }
+
+                /* 2. 제목 폰트 크기 축소 */
+                .landing-title {
+                    font-size: 2.5rem !important;
+                    text-align: center;
+                }
+                .landing-subtitle {
+                    font-size: 1.1rem !important;
+                    text-align: center;
+                    margin-bottom: 20px !important;
+                }
+
+                /* 3. 단계별 가이드 세로 배치 */
+                .step-container {
+                    flex-direction: column;
+                    gap: 10px;
+                    margin-top: 20px;
+                }
+                .step-item {
+                    padding: 15px;
+                }
+
+                /* 4. 입력 폼 박스 스타일 단순화 */
+                .landing-action {
+                    padding: 20px !important;
+                    border: 2px solid var(--primary-soft);
+                    box-shadow: none;
+                }
+
+                /* 5. 버튼 터치 영역 확대 */
+                .stButton > button {
+                    height: 60px !important;
+                    font-size: 1.1rem !important;
+                }
+
+                /* 6. 폴라로이드 및 결과 카드 최적화 */
+                .polaroid-frame, .result-card, .content-box {
+                    padding: 15px !important;
+                }
+                
+                /* 7. 컬럼 강제 조정 (100% 너비) */
+                [data-testid="column"] {
+                    width: 100% !important;
+                    flex: 1 1 auto !important;
+                    min-width: unset !important;
+                }
             }
         </style>
         """, unsafe_allow_html=True)
