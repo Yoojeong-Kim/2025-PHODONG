@@ -4,7 +4,6 @@ import json
 import io
 import logging
 import base64
-import html
 from dataclasses import dataclass
 from typing import Optional, List
 from PIL import Image
@@ -27,14 +26,13 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# [핵심] styles.py 에 정의된 CSS를 여기서 강제로 주입합니다.
+# [핵심] CSS 강제 주입
 if hasattr(styles, 'CSS'):
     st.markdown(styles.CSS, unsafe_allow_html=True)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 logger = logging.getLogger("PhodongApp")
 
-# [모델 설정]
 DEFAULT_MODEL = "gemini-2.5-flash" 
 
 GENRE_OPTIONS = ["전래동화", "판타지", "히어로", "요정", "일상", "자동차", "공주/왕자", "추리", "우주", "로봇", "동물", "공룡"]
@@ -67,25 +65,7 @@ class StoryCard:
 # ==============================================================================
 # 3. 🧠 AI 서비스
 # ==============================================================================
-class Utils:
-    @staticmethod
-    def clean_json_text(text):
-        text = text.strip()
-        if text.startswith("```json"): text = text[7:]
-        elif text.startswith("```"): text = text[3:]
-        if text.endswith("```"): text = text[:-3]
-        return text.strip()
-
-    @staticmethod
-    def image_to_base64(image: Image.Image) -> str:
-        if image is None: return ""
-        buffered = io.BytesIO()
-        image.save(buffered, format="JPEG")
-        return base64.b64encode(buffered.getvalue()).decode()
-
-    @staticmethod
-    def escape(text: str) -> str:
-        return html.escape(str(text))
+# Utils 클래스 중복 제거 -> styles.Utils 사용
 
 class PhodongService:
     def __init__(self):
@@ -118,7 +98,7 @@ class PhodongService:
         """
         try:
             res = self.model.generate_content(prompt)
-            return json.loads(Utils.clean_json_text(res.text))
+            return json.loads(styles.Utils.clean_html(res.text).replace('```json', '').replace('```', ''))
         except:
             return {"name": "포동이", "type": object_desc, "personality": "호기심 많음", "power": "상상하기"}
 
@@ -142,7 +122,7 @@ class PhodongService:
         """
         try:
             res = self.model.generate_content(final_prompt)
-            return json.loads(Utils.clean_json_text(res.text))
+            return json.loads(styles.Utils.clean_html(res.text).replace('```json', '').replace('```', ''))
         except Exception as e:
             logger.error(f"Page Gen Error: {e}")
             return {"story_narration": "이야기를 잇는 중 오류가 났어요.", "dialogue": "..."}
@@ -184,7 +164,13 @@ def render_book_viewer(config: StoryConfig):
     col_img, col_txt = st.columns([1, 1], gap="large")
 
     with col_img:
-        img_b64 = Utils.image_to_base64(card.image)
+        img_b64 = styles.Utils.image_to_base64(card.image) if hasattr(styles.Utils, 'image_to_base64') else ""
+        # 임시 base64 변환 로직 (styles에 없을 경우 대비)
+        if not img_b64 and card.image:
+            buffered = io.BytesIO()
+            card.image.save(buffered, format="JPEG")
+            img_b64 = base64.b64encode(buffered.getvalue()).decode()
+        
         img_src = f"data:image/jpeg;base64,{img_b64}" if img_b64 else ""
         
         st.markdown(styles.Utils.clean_html(f"""
@@ -193,12 +179,12 @@ def render_book_viewer(config: StoryConfig):
                 <div class='polaroid-label'>Scene {card.page_number} : {card.current_object}</div>
             </div>
             <div class='profile-group'>
-                <span class='badge-pill badge-pink'>✨ {Utils.escape(card.character_name)} ({Utils.escape(card.character_type)})</span>
+                <span class='badge-pill badge-pink'>✨ {styles.Utils.escape(card.character_name)} ({styles.Utils.escape(card.character_type)})</span>
                 <div style="margin-top:12px;">
-                    <span class='badge-pill badge-yellow'>💖 {Utils.escape(card.personality)}</span>
+                    <span class='badge-pill badge-yellow'>💖 {styles.Utils.escape(card.personality)}</span>
                 </div>
                 <div style="margin-top:10px; font-size: 0.95rem; color: #555; background: #E0F2F1; padding: 10px; border-radius: 8px;">
-                    ⚡ <b>능력:</b> {Utils.escape(card.magic_power)}
+                    ⚡ <b>능력:</b> {styles.Utils.escape(card.magic_power)}
                 </div>
             </div>
         """), unsafe_allow_html=True)
@@ -207,11 +193,11 @@ def render_book_viewer(config: StoryConfig):
         st.markdown(styles.Utils.clean_html(f"""
             <div style="padding-top:10px;">
                 <div class='dialogue-box'>
-                    <div class='dialogue-text'>"{Utils.escape(card.dialogue)}"</div>
+                    <div class='dialogue-text'>"{styles.Utils.escape(card.dialogue)}"</div>
                 </div>
                 <div class='context-box'>
                     <strong style='color:#A0C4FF; font-family:"Jua"; display:block; margin-bottom:10px; font-size:1.15rem;'>상황 설명</strong>
-                    {Utils.escape(card.story_narration)}
+                    {styles.Utils.escape(card.story_narration)}
                 </div>
             </div>
         """), unsafe_allow_html=True)
@@ -239,7 +225,6 @@ def render_book_viewer(config: StoryConfig):
 def main():
     init_session_state()
     service = PhodongService()
-    
 
     bear = styles.ArtWork.get_bear(45)
     c1, c2 = st.columns([0.8, 11.2])
@@ -247,10 +232,10 @@ def main():
     with c2: st.markdown(styles.Utils.clean_html("<h3 class='font-heading' style='color:#FF9EAA; margin:0; font-size:1rem; line-height:1;'>체험용 모바일 프로토타입</h3>"), unsafe_allow_html=True)
     st.markdown("<hr style='margin: 15px 0 40px 0; border:0; border-top:2px solid #F0F0F0;'>", unsafe_allow_html=True)
 
-    # --- 헤더 ---
+    # [수정] 타이틀 태그를 div.landing-title 로 변경하여 CSS 적용 확실하게 함
     st.markdown("""
         <div class="landing-hero" style="text-align:center; padding-bottom: 20px;">
-            <h1 class="landing-title">포동 PHODONG</h1>
+            <div class="landing-title">포동 PHODONG</div>
             <p class="landing-subtitle">아이의 소중한 순간들이<br>세상에 하나뿐인 동화책이 됩니다!</p>
         </div>
     """, unsafe_allow_html=True)
@@ -270,50 +255,34 @@ def main():
                     </div>
                 """), unsafe_allow_html=True)
 
-        # [수정된 부분] 오른쪽 컬럼: 기존의 큰 박스를 제거하고 Expander(접이식)로 변경
         with right_col:
-            # 왼쪽 '사용법 보기'와 동일한 스타일로 접었다 펼 수 있게 변경
             with st.expander("📝 이야기 설정 & 사진 업로드 (클릭)", expanded=True):
-                
-                # 입력 폼 디자인을 깔끔하게 유지하기 위해 컨테이너 사용
                 st.markdown("<div style='padding: 10px 5px;'>", unsafe_allow_html=True)
-
                 c_in1, c_in2 = st.columns(2)
                 with c_in1: child_name = st.text_input("아이 이름", value="예) 민준")
                 with c_in2: age = st.slider("아이 연령", 3, 9, 5)
                 partner_name = st.text_input("단짝 이름", value="예) 포동이")
-                
                 c_sel1, c_sel2 = st.columns(2)
                 with c_sel1: genre = st.selectbox("장르", GENRE_OPTIONS)
                 with c_sel2: purpose = st.selectbox("교육 목표", PURPOSE_OPTIONS)
-                
                 st.markdown("<div style='margin-bottom:15px;'></div>", unsafe_allow_html=True)
                 
                 uploaded_files = st.file_uploader(
-                    "사진을 순서대로 여러 장 올려주세요! (최대 5장 권장)", 
+                    "사진을 순서대로 여러 장 올려주세요!", 
                     type=["jpg", "png", "jpeg"], 
                     accept_multiple_files=True,
                     label_visibility="collapsed"
                 )
-                
                 st.markdown("<div style='margin-top:15px;'></div>", unsafe_allow_html=True)
                 process_btn = st.button("✨ 동화책 만들기 시작!", type="primary", use_container_width=True)
-                
                 st.markdown("</div>", unsafe_allow_html=True)
-
-            # --- 로직 실행 (들여쓰기 주의: Expander 밖이 아니라 with right_col 안에 위치하되, 버튼 변수는 위에서 정의됨) ---
-            # 버튼이 클릭되었을 때의 로직은 위에서 정의한 process_btn을 사용하므로, 
-            # 들여쓰기를 맞춰서 바로 아래에 이어가면 됩니다.
             
             if process_btn:
                 if uploaded_files:
-                    # ... (이하 로직은 기존과 동일) ...
                     config = StoryConfig(child_name, partner_name, age, genre, purpose)
                     total_files = len(uploaded_files)
-                    
                     progress_bar = st.progress(0)
                     status_text = st.empty()
-                    
                     temp_book = []
                     context_so_far = ""
                     character_info = {} 
@@ -322,26 +291,15 @@ def main():
                         for i, file in enumerate(uploaded_files):
                             current_page = i + 1
                             image = Image.open(file)
-                            
                             status_text.markdown(f"**📖 {current_page}번째 페이지 만드는 중...** ({current_page}/{total_files})")
                             
                             obj_desc = service.analyze_image(image)
+                            if i == 0: character_info = service.create_character(obj_desc, config)
                             
-                            if i == 0:
-                                character_info = service.create_character(obj_desc, config)
-                            
-                            page_data = service.generate_page(
-                                page_num=current_page,
-                                total_pages=total_files,
-                                current_img_desc=obj_desc,
-                                character_info=character_info,
-                                context_so_far=context_so_far,
-                                config=config
-                            )
-                            
+                            page_data = service.generate_page(current_page, total_files, obj_desc, character_info, context_so_far, config)
                             audio = service.text_to_speech(page_data['dialogue'])
                             
-                            card = StoryCard(
+                            temp_book.append(StoryCard(
                                 page_number=current_page,
                                 character_name=character_info.get('name', '알 수 없음'),
                                 character_type=character_info.get('type', obj_desc),
@@ -352,9 +310,7 @@ def main():
                                 dialogue=page_data['dialogue'],
                                 image=image,
                                 audio_data=audio
-                            )
-                            temp_book.append(card)
-                            
+                            ))
                             context_so_far += f"\n[Page {current_page}] {page_data['story_narration']}"
                             progress_bar.progress((i + 1) / total_files)
                         
