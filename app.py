@@ -239,9 +239,7 @@ def render_book_viewer(config: StoryConfig):
 def main():
     init_session_state()
     service = PhodongService()
-
-    if hasattr(styles, 'CSS'):
-        st.markdown(styles.CSS, unsafe_allow_html=True)
+    
 
     bear = styles.ArtWork.get_bear(45)
     c1, c2 = st.columns([0.8, 11.2])
