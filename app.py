@@ -4,6 +4,7 @@ import json
 import io
 import logging
 import base64
+import html
 from dataclasses import dataclass
 from typing import Optional, List
 from PIL import Image
@@ -29,15 +30,14 @@ st.set_page_config(
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 logger = logging.getLogger("PhodongApp")
 
-# [모델 설정]
-TEXT_MODEL_NAME = "gemini-2.5-flash"
-IMAGE_MODEL_NAME = "gemini-2.0-flash-exp-image-generation"
+# [모델 설정] 최신 모델 사용
+DEFAULT_MODEL = "gemini-2.5-flash" 
 
 GENRE_OPTIONS = ["전래동화", "판타지", "히어로", "요정", "일상", "자동차", "공주/왕자", "추리", "우주", "로봇", "동물", "공룡"]
 PURPOSE_OPTIONS = ["안전 교육", "예절&규칙", "생활 습관", "어휘력 향상", "세계&다양성", "창의력/사고력", "기초과학", "자존감 높이기"]
 
 # ==============================================================================
-# 2. 📦 데이터 구조
+# 2. 📦 데이터 구조 (디자인을 위해 필드 추가됨)
 # ==============================================================================
 @dataclass
 class StoryConfig:
@@ -49,16 +49,16 @@ class StoryConfig:
 
 @dataclass
 class StoryCard:
-    page_number: int = 0 
+    page_number: int = 1
     character_name: str = ""
-    character_type: str = ""   # 캐릭터 종류 (예: 두루마리 휴지)
-    personality: str = ""      # 성격
-    magic_power: str = ""      # 능력
+    character_type: str = ""   # [추가] 캐릭터 종류 (예: 곰인형)
+    personality: str = ""      # [추가] 성격
+    magic_power: str = ""      # [추가] 능력
+    current_object: str = ""
     story_narration: str = ""
     dialogue: str = ""
     image: Optional[Image.Image] = None 
     audio_data: Optional[bytes] = None
-    is_cover: bool = False 
 
 # ==============================================================================
 # 3. 🧠 AI 서비스
@@ -74,6 +74,7 @@ class Utils:
 
     @staticmethod
     def image_to_base64(image: Image.Image) -> str:
+        """PIL 이미지를 HTML 표시용 Base64 코드로 변환"""
         if image is None: return ""
         buffered = io.BytesIO()
         image.save(buffered, format="JPEG")
@@ -82,7 +83,6 @@ class Utils:
     @staticmethod
     def escape(text: str) -> str:
         """HTML 특수문자 처리"""
-        import html
         return html.escape(str(text))
 
 class PhodongService:
@@ -93,78 +93,77 @@ class PhodongService:
             st.stop()
         
         genai.configure(api_key=self.api_key)
-        self.text_model = genai.GenerativeModel(TEXT_MODEL_NAME)
-        self.image_model = genai.GenerativeModel(IMAGE_MODEL_NAME)
+        self.model = genai.GenerativeModel(DEFAULT_MODEL)
 
     def analyze_image(self, image: Image.Image) -> str:
+        """이미지에 무엇이 있는지 간단히 분석"""
+        prompt = "이 사진에 있는 주요 사물이나 캐릭터가 무엇인지 단답형으로 한글로 알려줘."
         try:
-            res = self.text_model.generate_content(["이 사진에 있는 주요 사물이나 캐릭터가 무엇인지 단답형 한글로 알려줘.", image])
+            res = self.model.generate_content([prompt, image])
             return res.text.strip()
         except:
             return "알 수 없는 물건"
 
     def create_character(self, object_desc: str, config: StoryConfig) -> dict:
+        """[1페이지용] 주인공 캐릭터 설정 (상세 정보 요청)"""
         prompt = f"""
-        '{object_desc}' 사진을 보고 주인공 캐릭터를 설정해주세요.
+        당신은 동화 작가입니다. '{object_desc}' 사진을 보고 주인공을 만들어주세요.
         - 독자: {config.age}세, 장르: {config.genre}, 목표: {config.purpose}
-        [출력 JSON] {{
-            "name": "이름 (예: 순결의 롤 대장)", 
-            "type": "종류 (예: 두루마리 휴지)",
-            "personality": "성격 (한 문장)", 
-            "power": "능력 (한 문장)"
+        
+        [출력 JSON]
+        {{
+            "name": "이름 (예: 포동이)",
+            "type": "종류 (예: 용감한 곰인형)",
+            "personality": "성격 (한 문장)",
+            "power": "마법 능력 (한 문장)"
         }}
         """
         try:
-            res = self.text_model.generate_content(prompt)
+            res = self.model.generate_content(prompt)
             return json.loads(Utils.clean_json_text(res.text))
         except:
-            return {"name": "포동이", "type": object_desc, "personality": "용감함", "power": "상상력"}
-
-    def generate_cover_info(self, objects: List[str], config: StoryConfig) -> dict:
-        obj_str = ", ".join(objects)
-        prompt = f"""
-        동화 작가로서 다음 요소들을 포함하는 동화책의 '제목'과 '표지 그림 묘사'를 작성하세요.
-        - 등장 사물들: {obj_str}
-        - 장르: {config.genre}
-        - 독자: {config.child_name} ({config.age}세)
-        [출력 JSON] {{"title": "제목", "cover_prompt": "영어 프롬프트"}}
-        """
-        try:
-            res = self.text_model.generate_content(prompt)
-            return json.loads(Utils.clean_json_text(res.text))
-        except:
-            return {"title": "나만의 동화책", "cover_prompt": "Cute adventure, 3d render"}
-
-    def generate_cover_image(self, prompt: str) -> Optional[Image.Image]:
-        try:
-            response = self.image_model.generate_content(prompt)
-            if response.parts:
-                return Image.open(io.BytesIO(response.parts[0].inline_data.data))
-            return None
-        except Exception as e:
-            logger.error(f"Image Gen Error: {e}")
-            return None
+            return {"name": "포동이", "type": object_desc, "personality": "호기심 많음", "power": "상상하기"}
 
     def generate_page(self, page_num: int, total_pages: int, current_img_desc: str, 
                       character_info: dict, context_so_far: str, config: StoryConfig) -> dict:
+        """페이지 내용 생성"""
+        
         if page_num == 1:
             context_prompt = "이야기의 시작입니다. 주인공을 소개하고 모험을 시작하세요."
         else:
-            context_prompt = f"[이전 줄거리]: {context_so_far}\n[현재 상황]: 주인공이 '{current_img_desc}'(을)를 만났습니다. 자연스럽게 이어주세요."
+            context_prompt = f"""
+            [이전 줄거리]: {context_so_far}
+            [현재 상황]: 주인공이 '{current_img_desc}'(을)를 만났습니다. 자연스럽게 이어주세요.
+            """
 
         final_prompt = f"""
-        총 {total_pages}페이지 중 {page_num}페이지입니다.
-        - 주인공: {character_info['name']}
-        - 설정: {config.genre}, {config.purpose}
-        - 조건: {config.age}세 아이를 위한 해요체. 지문 3~4문장, 대사 1~2문장.
+        동화 작가로서 총 {total_pages}페이지 중 {page_num}페이지를 작성하세요.
+        
+        [설정]
+        - 주인공: {character_info.get('name')} ({character_info.get('personality')})
+        - 독자: {config.child_name} ({config.age}세), 장르: {config.genre}
+        - 교육 목표: {config.purpose}
+        
         {context_prompt}
-        [출력 JSON] {{"story_narration": "...", "dialogue": "..."}}
+
+        [작성 조건]
+        1. 말투: {config.age}세 아이를 위한 따뜻한 '해요체'.
+        2. 분량: 지문(Narration) 3~4문장, 대사(Dialogue) 1~2문장.
+        3. {total_pages}페이지에서 이야기가 교훈적으로 끝나야 함.
+
+        [출력 포맷 JSON]
+        {{
+            "story_narration": "지문 내용...",
+            "dialogue": "캐릭터 대사..."
+        }}
         """
+        
         try:
-            res = self.text_model.generate_content(final_prompt)
+            res = self.model.generate_content(final_prompt)
             return json.loads(Utils.clean_json_text(res.text))
-        except:
-            return {"story_narration": "...", "dialogue": "..."}
+        except Exception as e:
+            logger.error(f"Page Gen Error: {e}")
+            return {"story_narration": "이야기를 잇는 중 오류가 났어요.", "dialogue": "..."}
 
     def text_to_speech(self, text: str) -> Optional[bytes]:
         try:
@@ -176,28 +175,18 @@ class PhodongService:
         except:
             return None
 
-    def create_download_html(self, pages: List[StoryCard], config: StoryConfig, title: str) -> str:
-        html_content = f"""
-        <html><head><meta charset="utf-8">
-        <style>body{{font-family:sans-serif;padding:20px;text-align:center;}}.page{{margin-bottom:50px;border:1px solid #eee;padding:20px;border-radius:10px;}}img{{max-width:100%;border-radius:10px;}}</style>
-        </head><body><h1>{title}</h1><h3>지은이: {config.child_name}</h3>"""
-        for page in pages:
-            img_b64 = Utils.image_to_base64(page.image)
-            html_content += f"""<div class="page"><img src="data:image/jpeg;base64,{img_b64}"><p>{page.story_narration}</p><p><b>"{page.dialogue}"</b></p></div>"""
-        html_content += "</body></html>"
-        return html_content
-
 # ==============================================================================
-# 4. 🖥️ UI / VIEW LAYER (디자인 핵심 부분)
+# 4. 🖥️ UI / VIEW LAYER (디자인 적용됨!)
 # ==============================================================================
 
 def init_session_state():
-    if "book_pages" not in st.session_state: st.session_state.book_pages = []
-    if "book_title" not in st.session_state: st.session_state.book_title = "나만의 동화책"
-    if "current_page_idx" not in st.session_state: st.session_state.current_page_idx = 0
+    if "book_pages" not in st.session_state:
+        st.session_state.book_pages = []
+    if "current_page_idx" not in st.session_state:
+        st.session_state.current_page_idx = 0
 
 def render_book_viewer(config: StoryConfig):
-    """[핵심] 보내주신 사진과 동일한 디자인으로 렌더링"""
+    """[디자인 적용] 완성된 동화책 뷰어"""
     pages = st.session_state.book_pages
     idx = st.session_state.current_page_idx
     total = len(pages)
@@ -205,8 +194,8 @@ def render_book_viewer(config: StoryConfig):
 
     # 1. 상단 네비게이션
     st.markdown(styles.Utils.clean_html(f"""
-        <div style="display:flex; justify-content:space-between; color:#888; margin-bottom:20px; padding:0 5px; border-bottom: 2px solid #F0F0F0; padding-bottom:10px;">
-            <span class='font-heading' style='font-size:1.3rem; color:#FF9EAA;'>📖 {st.session_state.book_title}</span>
+        <div style="display:flex; justify-content:space-between; align-items:center; color:#888; margin-bottom:20px; padding:0 5px; border-bottom: 2px solid #F0F0F0; padding-bottom:15px;">
+            <span class='font-heading' style='font-size:1.3rem; color:#FF9EAA;'>📖 {config.child_name}의 모험</span>
             <span class='font-heading' style='font-size:1.1rem; background:#FFF; padding:6px 15px; border:2px solid #F0F0F0; border-radius:15px; color:#A0C4FF;'>
                 Page {idx + 1} / {total}
             </span>
@@ -216,35 +205,33 @@ def render_book_viewer(config: StoryConfig):
     # 2. 메인 콘텐츠 (2컬럼 레이아웃)
     col_img, col_txt = st.columns([1, 1], gap="large")
 
-    # [왼쪽] 폴라로이드 사진 + 캐릭터 프로필 (민트색 박스)
+    # [왼쪽] 폴라로이드 사진 + 프로필 박스
     with col_img:
-        # 이미지 Base64 변환
         img_b64 = Utils.image_to_base64(card.image)
         img_src = f"data:image/jpeg;base64,{img_b64}" if img_b64 else ""
         
-        # 렌더링 HTML
+        # 폴라로이드 프레임
         st.markdown(styles.Utils.clean_html(f"""
             <div class='polaroid-frame'>
                 <img src='{img_src}' class='polaroid-img'>
-                <div class='polaroid-label'>Scene {card.page_number if not card.is_cover else "Cover"}</div>
+                <div class='polaroid-label'>Scene {card.page_number} : {card.current_object}</div>
             </div>
         """), unsafe_allow_html=True)
 
-        # 표지가 아닐 때만 프로필 박스 표시
-        if not card.is_cover:
-            st.markdown(styles.Utils.clean_html(f"""
-                <div class='profile-group'>
-                    <span class='badge-pill badge-pink'>✨ {Utils.escape(card.character_name)} ({Utils.escape(card.character_type)})</span>
-                    <div style="margin-top:12px;">
-                        <span class='badge-pill badge-yellow'>💖 {Utils.escape(card.personality)}</span>
-                    </div>
-                    <div style="margin-top:12px; font-size: 0.95rem; color: #555; background: #E0F2F1; padding: 8px; border-radius: 8px;">
-                        ⚡ {Utils.escape(card.magic_power)}
-                    </div>
+        # 프로필 박스 (민트색)
+        st.markdown(styles.Utils.clean_html(f"""
+            <div class='profile-group'>
+                <span class='badge-pill badge-pink'>✨ {Utils.escape(card.character_name)} ({Utils.escape(card.character_type)})</span>
+                <div style="margin-top:12px;">
+                    <span class='badge-pill badge-yellow'>💖 {Utils.escape(card.personality)}</span>
                 </div>
-            """), unsafe_allow_html=True)
+                <div style="margin-top:10px; font-size: 0.95rem; color: #555; background: #E0F2F1; padding: 10px; border-radius: 8px;">
+                    ⚡ <b>능력:</b> {Utils.escape(card.magic_power)}
+                </div>
+            </div>
+        """), unsafe_allow_html=True)
 
-    # [오른쪽] 대사 (노란색) + 상황설명 (파란색)
+    # [오른쪽] 대사(노랑) + 지문(파랑)
     with col_txt:
         st.markdown(styles.Utils.clean_html(f"""
             <div style="padding-top:10px;">
@@ -263,12 +250,11 @@ def render_book_viewer(config: StoryConfig):
             </div>
         """), unsafe_allow_html=True)
         
-        # 오디오 플레이어
         if card.audio_data:
             st.markdown("<div style='margin-top:15px;'></div>", unsafe_allow_html=True)
             st.audio(card.audio_data, format='audio/mp3')
 
-    # 3. 하단 버튼 (이전 / 다음 / 전체보기)
+    # 3. 하단 버튼
     st.markdown("<div style='margin-top:40px;'></div>", unsafe_allow_html=True)
     b_col1, b_col2, b_col3 = st.columns([1, 2, 1])
 
@@ -284,46 +270,10 @@ def render_book_viewer(config: StoryConfig):
                 st.session_state.current_page_idx += 1
                 st.rerun()
         else:
-            # 마지막 페이지면 '전체 보기 및 저장' 버튼
-            if st.button("🎁 전체 보기 및 저장", type="primary", use_container_width=True):
-                st.session_state.view_mode = "all"
+            if st.button("🔄 처음으로", type="primary", use_container_width=True):
+                st.session_state.book_pages = []
+                st.session_state.current_page_idx = 0
                 st.rerun()
-
-def render_all_pages_view(config: StoryConfig):
-    """전체 내용을 한 번에 보여주고 저장하는 페이지"""
-    st.markdown(f"<h2 class='font-heading' style='text-align:center; color:#FF9EAA; margin-bottom:30px;'>📘 {st.session_state.book_title} (전체 보기)</h2>", unsafe_allow_html=True)
-    
-    pages = st.session_state.book_pages
-    service = PhodongService()
-
-    for page in pages:
-        img_b64 = Utils.image_to_base64(page.image)
-        st.markdown(styles.Utils.clean_html(f"""
-            <div class='content-box' style='margin-bottom: 30px; border-top: 4px solid #FF9EAA;'>
-                <div style='text-align:center; margin-bottom:15px; font-family:Jua; color:#A0C4FF; font-size:1.2rem;'>
-                    {'🧸 표지' if page.is_cover else f'Page {page.page_number}'}
-                </div>
-                <img src='data:image/jpeg;base64,{img_b64}' style='width:100%; border-radius:12px; margin-bottom:20px; border:1px solid #EEE;'>
-                <div style='background:#FFFBE6; padding:20px; border-radius:15px; margin-bottom:15px; border:1px solid #FFE082;'>
-                    <div style='font-family:Jua; font-size:1.3rem; color:#5D4037; margin-bottom:10px;'>"{page.dialogue}"</div>
-                    <div style='color:#666; font-size:1rem; line-height:1.6;'>{page.story_narration}</div>
-                </div>
-            </div>
-        """), unsafe_allow_html=True)
-
-    # 다운로드
-    st.divider()
-    html_data = service.create_download_html(pages, config, st.session_state.book_title)
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.download_button("💾 HTML로 저장하기", html_data, f"{config.child_name}_story.html", "text/html", type="primary", use_container_width=True)
-    with col2:
-        if st.button("🔄 처음으로", use_container_width=True):
-            st.session_state.book_pages = []
-            st.session_state.current_page_idx = 0
-            st.session_state.view_mode = "single"
-            st.rerun()
 
 def main():
     styles.DesignSystem.inject_css()
@@ -331,38 +281,47 @@ def main():
     service = PhodongService()
 
     # --- 헤더 ---
-    st.markdown("""
-        <div class="landing-hero" style="text-align:center; padding-bottom: 20px;">
-            <h1 class="landing-title">나만의 동화책 만들기</h1>
-            <p class="landing-subtitle">사진을 올리면 <b>포동이</b>가 이야기를 만들어줘요!</p>
-        </div>
-    """, unsafe_allow_html=True)
+    bear = styles.ArtWork.get_bear(45)
+    c1, c2 = st.columns([0.8, 11.2])
+    with c1: st.markdown(f"<div>{bear}</div>", unsafe_allow_html=True)
+    with c2: st.markdown(styles.Utils.clean_html("<h3 class='font-heading' style='color:#FF9EAA; margin:0; font-size:1.8rem; line-height:1.5;'>포동 PHODONG</h3>"), unsafe_allow_html=True)
+    st.markdown("<hr style='margin: 15px 0 40px 0; border:0; border-top:2px solid #F0F0F0;'>", unsafe_allow_html=True)
 
-    # 1. 책이 없을 때 -> 입력 폼
+    # --- 메인 레이아웃 (책 생성 전) ---
     if not st.session_state.book_pages:
+        # 모바일 레이아웃 고려: 제목은 밖으로 뺌
+        st.markdown("""
+            <div class="landing-hero" style="text-align:center; padding-bottom: 20px;">
+                <h1 class="landing-title">나만의 동화책 만들기</h1>
+                <p class="landing-subtitle">사진을 올리면 <b>포동이</b>가 이야기를 만들어줘요!</p>
+            </div>
+        """, unsafe_allow_html=True)
+
         left_col, right_col = st.columns([1, 1], gap="large")
 
         with left_col:
-            with st.expander("🧸 사용법 보기", expanded=True):
+            # 모바일을 위해 가이드는 확장형으로
+            with st.expander("🧸 사용법 보기 (클릭)", expanded=True):
                 folder = styles.ArtWork.get_folder(40)
                 bear_icon = styles.ArtWork.get_bear(40)
                 book = styles.ArtWork.get_book_cover(40)
+                
                 st.markdown(styles.Utils.clean_html(f"""
                     <div class="step-container">
                         <div class="step-item step-1">
                             <div>{folder}</div>
-                            <div class="step-title" style="color:#A0C4FF;">1. 사진 선택</div>
-                            <div class="step-desc">3~5장의 사진을 골라주세요.</div>
+                            <div class="step-title" style="color:#A0C4FF;">1. 여러 장 선택</div>
+                            <div class="step-desc">이야기에 넣고 싶은 사진을 3~5장 골라주세요.</div>
                         </div>
                         <div class="step-item step-2">
                             <div>{bear_icon}</div>
-                            <div class="step-title" style="color:#FFD580;">2. AI 창작</div>
-                            <div class="step-desc">표지 그림과 이야기를 지어줘요.</div>
+                            <div class="step-title" style="color:#FFD580;">2. 이야기 연결</div>
+                            <div class="step-desc">포동이가 사진 순서대로 이야기를 이어줘요.</div>
                         </div>
                         <div class="step-item step-3">
                             <div>{book}</div>
                             <div class="step-title" style="color:#FF9EAA;">3. 책 완성</div>
-                            <div class="step-desc">전체 내용을 저장할 수 있어요.</div>
+                            <div class="step-desc">한 장씩 넘겨보며 동화를 읽어보세요.</div>
                         </div>
                     </div>
                 """), unsafe_allow_html=True)
@@ -382,7 +341,7 @@ def main():
             st.markdown("<div style='margin-bottom:15px;'></div>", unsafe_allow_html=True)
             
             uploaded_files = st.file_uploader(
-                "사진을 순서대로 여러 장 올려주세요! (최대 5장)", 
+                "사진을 순서대로 여러 장 올려주세요! (최대 5장 권장)", 
                 type=["jpg", "png", "jpeg"], 
                 accept_multiple_files=True,
                 label_visibility="collapsed"
@@ -391,6 +350,7 @@ def main():
             process_btn = st.button("✨ 동화책 만들기 시작!", type="primary", use_container_width=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
+            # --- 로직 실행 ---
             if process_btn:
                 if uploaded_files:
                     config = StoryConfig(child_name, partner_name, age, genre, purpose)
@@ -398,49 +358,39 @@ def main():
                     
                     progress_bar = st.progress(0)
                     status_text = st.empty()
-                    temp_book = []
-                    context_so_far = "" 
-                    character_info = {}
                     
-                    try:
-                        status_text.markdown("🎨 **동화책 표지를 그리고 있어요...** (잠시만 기다려주세요!)")
-                        all_images = [Image.open(f) for f in uploaded_files]
-                        
-                        # [표지 생성]
-                        obj_list = [service.analyze_image(img) for img in all_images[:3]]
-                        cover_info = service.generate_cover_info(obj_list, config)
-                        st.session_state.book_title = cover_info.get("title", "나만의 동화책")
-                        
-                        cover_img = service.generate_cover_image(cover_info.get("cover_prompt", ""))
-                        if cover_img:
-                            temp_book.append(StoryCard(
-                                page_number=0, character_name="표지", 
-                                story_narration=f"제목: {st.session_state.book_title}", 
-                                dialogue=f"지은이: 포동이와 {child_name}", 
-                                image=cover_img, is_cover=True
-                            ))
+                    temp_book = []
+                    context_so_far = ""
+                    character_info = {} 
 
-                        # [본문 생성]
-                        for i, image in enumerate(all_images):
+                    try:
+                        for i, file in enumerate(uploaded_files):
                             current_page = i + 1
+                            image = Image.open(file)
+                            
                             status_text.markdown(f"**📖 {current_page}번째 페이지 만드는 중...** ({current_page}/{total_files})")
                             
-                            obj_desc = obj_list[i] if i < len(obj_list) else service.analyze_image(image)
+                            obj_desc = service.analyze_image(image)
                             
+                            # 1페이지에서만 캐릭터 생성
                             if i == 0:
                                 character_info = service.create_character(obj_desc, config)
                             
                             page_data = service.generate_page(
-                                page_num=current_page, total_pages=total_files,
-                                current_img_desc=obj_desc, character_info=character_info,
-                                context_so_far=context_so_far, config=config
+                                page_num=current_page,
+                                total_pages=total_files,
+                                current_img_desc=obj_desc,
+                                character_info=character_info,
+                                context_so_far=context_so_far,
+                                config=config
                             )
                             
                             audio = service.text_to_speech(page_data['dialogue'])
                             
-                            temp_book.append(StoryCard(
+                            # StoryCard에 상세 정보 저장 (디자인에 필요)
+                            card = StoryCard(
                                 page_number=current_page,
-                                character_name=character_info.get('name', child_name),
+                                character_name=character_info.get('name', '알 수 없음'),
                                 character_type=character_info.get('type', obj_desc),
                                 personality=character_info.get('personality', '-'),
                                 magic_power=character_info.get('power', '-'),
@@ -449,13 +399,14 @@ def main():
                                 dialogue=page_data['dialogue'],
                                 image=image,
                                 audio_data=audio
-                            ))
+                            )
+                            temp_book.append(card)
+                            
                             context_so_far += f"\n[Page {current_page}] {page_data['story_narration']}"
                             progress_bar.progress((i + 1) / total_files)
                         
                         st.session_state.book_pages = temp_book
                         st.session_state.config = config
-                        st.session_state.view_mode = "single"
                         st.rerun()
 
                     except Exception as e:
@@ -463,11 +414,9 @@ def main():
                 else:
                     st.warning("사진을 최소 1장 이상 올려주세요!")
 
-    # 2. 책 완성 -> 뷰어 모드
+    # --- 책 뷰어 (책 완성 후) ---
     else:
-        if st.session_state.get("view_mode") == "all":
-            render_all_pages_view(st.session_state.config)
-        else:
+        if "config" in st.session_state:
             render_book_viewer(st.session_state.config)
 
 if __name__ == "__main__":
