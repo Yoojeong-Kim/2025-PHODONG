@@ -2,7 +2,10 @@
 import streamlit as st
 
 # CSS 코드를 변수에 담아둡니다. (app.py에서 가져다 쓰기 위함)
-CSS = """
+# ==============================================================================
+# 0. 🎨 CSS 스타일 (전체 반응형 적용 완료)
+# ==============================================================================
+CSS_STYLE = """
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap');
 
@@ -24,7 +27,7 @@ CSS = """
         --radius-md: 16px;
     }
 
-    /* === GLOBAL RESET === */
+    /* === GLOBAL RESET & TYPOGRAPHY === */
     .stApp {
         background-color: var(--bg-base);
         background-image: linear-gradient(135deg, #FFFBF8 0%, #FFF5F7 50%, #F0F7FF 100%);
@@ -32,14 +35,78 @@ CSS = """
         font-family: 'Gowun Dodum', sans-serif;
         text-align: left !important;
     }
-    .block-container { padding-top: 3rem !important; padding-bottom: 5rem !important; max-width: 1280px; }
+    .block-container { 
+        padding-top: 2rem !important; 
+        padding-bottom: 5rem !important; 
+        max-width: 1280px; 
+    }
     header, footer, [data-testid="stToolbar"] { visibility: hidden; }
 
-    /* Typography */
-    h1, h2, h3, .font-heading { font-family: 'Jua', sans-serif; letter-spacing: -0.01em; color: var(--text-title); text-align: left; }
-    p, div, span, label, li { font-family: 'Gowun Dodum', sans-serif; font-size: 1.15rem; line-height: 1.8; color: var(--text-body); text-align: left; word-break: keep-all; }
+    /* [전체 폰트 반응형 설정] */
+    /* 기본 텍스트: 최소 16px ~ 최대 19px */
+    p, div, span, label, li, .stMarkdown { 
+        font-family: 'Gowun Dodum', sans-serif; 
+        font-size: clamp(1rem, 1.5vw, 1.2rem) !important; 
+        line-height: 1.7; 
+        color: var(--text-body); 
+        word-break: keep-all; 
+    }
+    
+    /* 제목 태그: 화면 비례해서 커짐 */
+    h1, h2, h3, .font-heading { 
+        font-family: 'Jua', sans-serif; 
+        letter-spacing: -0.01em; 
+        color: var(--text-title); 
+        text-align: left; 
+    }
 
-    /* === 🌟 핵심 디자인 컴포넌트 === */
+    /* === 🧸 LANDING PAGE (메인 화면) === */
+    .landing-hero { 
+        padding: 20px 10px; 
+        text-align: center;
+    }
+    
+    /* [수정] 메인 타이틀: 통통한 폰트 + 반응형 크기 (2.5rem ~ 4.5rem) */
+    .landing-title {
+        font-family: 'Jua', sans-serif !important;
+        color: #FF9EAA !important;
+        font-size: clamp(2.5rem, 6vw, 4.5rem) !important; 
+        text-align: center;
+        margin-bottom: 15px;
+        line-height: 1.3;
+        word-break: keep-all;
+        text-shadow: 3px 3px 0px #FFF0F5, 4px 4px 5px rgba(0,0,0,0.05); 
+    }
+
+    /* [수정] 서브 타이틀: 반응형 크기 (1rem ~ 1.5rem) */
+    .landing-subtitle {
+        font-size: clamp(1rem, 3vw, 1.5rem) !important; 
+        color: #777; 
+        margin-bottom: 40px; 
+        font-weight: bold;
+        text-align: center;
+        line-height: 1.5;
+    }
+    
+    /* 3-Step Guide */
+    .step-container { display: flex; gap: 20px; margin-top: 20px; }
+    .step-item {
+        flex: 1; background: white; padding: 20px; border-radius: var(--radius-md);
+        box-shadow: var(--shadow-soft); border-top: 5px solid #EEE;
+        transition: transform 0.3s;
+    }
+    .step-item:hover { transform: translateY(-5px); }
+    .step-1 { border-color: var(--tertiary); }
+    .step-2 { border-color: var(--secondary); }
+    .step-3 { border-color: var(--primary); }
+    
+    /* 단계별 제목/설명 반응형 */
+    .step-title { font-family: 'Jua'; font-size: clamp(1.1rem, 2vw, 1.3rem) !important; margin: 10px 0 5px 0; color: var(--text-title); }
+    .step-desc { font-size: clamp(0.9rem, 1.5vw, 1rem) !important; color: #888; line-height: 1.4; }
+
+    /* === 📖 STORY VIEWER (동화책 화면) === */
+
+    /* 1. 폴라로이드 프레임 */
     .polaroid-frame {
         background: white;
         padding: 20px 20px 40px 20px;
@@ -53,70 +120,77 @@ CSS = """
     .polaroid-img { width: 100%; height: auto; border: 2px solid #F0F0F0; margin-bottom: 15px; }
     .polaroid-label { font-family: 'Jua', sans-serif; font-size: 1.2rem; color: #555; text-align: center; }
 
+    /* 2. 캐릭터 프로필 (뱃지) */
     .profile-group {
         background: #F0FFF9; border: 3px solid #B5EAD7; border-radius: var(--radius-md);
-        padding: 25px; box-shadow: var(--shadow-soft); margin-top: 20px;
+        padding: 20px; box-shadow: var(--shadow-soft); margin-top: 20px;
     }
     .badge-pill {
-        display: inline-block; padding: 6px 15px; border-radius: 50px;
-        font-family: 'Jua', sans-serif; font-size: 1.05rem; margin-right: 5px; margin-bottom: 5px;
+        display: inline-block; padding: 6px 12px; border-radius: 50px;
+        font-family: 'Jua', sans-serif; 
+        font-size: clamp(0.9rem, 2vw, 1.1rem) !important; /* 뱃지 글씨도 반응형 */
+        margin-right: 5px; margin-bottom: 5px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
     .badge-pink { background: #FFF0F5; color: #FF9EAA; border: 2px solid #FF9EAA; }
     .badge-yellow { background: #FFFBE6; color: #FFD580; border: 2px solid #FFD580; }
 
+    /* 3. 대사 박스 & 지문 박스 */
     .dialogue-box {
         background: #FFFBE6; border: 4px solid #FFE082; border-radius: 25px;
-        padding: 30px; box-shadow: var(--shadow-soft); position: relative; margin-bottom: 30px;
+        padding: 25px; box-shadow: var(--shadow-soft); position: relative; margin-bottom: 20px;
     }
-    .dialogue-text { font-family: 'Jua', sans-serif; font-size: 1.4rem; color: #5D4037; line-height: 1.5; text-align: center; }
+    .dialogue-text { 
+        font-family: 'Jua', sans-serif; 
+        font-size: clamp(1.2rem, 2.5vw, 1.5rem) !important; /* 대사는 좀 더 크게 반응형 */
+        color: #5D4037; 
+        line-height: 1.5; text-align: center; 
+    }
 
     .context-box {
         background: #F0F7FF; border: 3px solid #A0C4FF; border-radius: var(--radius-md);
-        padding: 25px; box-shadow: var(--shadow-soft); font-size: 1.1rem; line-height: 1.7; color: #555;
+        padding: 20px; box-shadow: var(--shadow-soft); 
+        font-size: clamp(1rem, 1.8vw, 1.15rem) !important; /* 지문 텍스트 반응형 */
+        line-height: 1.7; color: #555;
     }
 
-    /* === LANDING PAGE === */
-    .landing-hero { padding: 20px; }
-    .landing-title { font-size: 4rem; color: var(--primary); margin-bottom: 15px; font-family: 'Jua'; text-shadow: 2px 2px 0px #FFF0F5; }
-    .landing-subtitle { font-size: 1.4rem; color: #777; margin-bottom: 50px; font-weight: bold; }
-    
-    .step-container { display: flex; gap: 20px; margin-top: 40px; }
-    .step-item { flex: 1; background: white; padding: 25px; border-radius: var(--radius-md); box-shadow: var(--shadow-soft); border-top: 5px solid #EEE; }
-    .step-title { font-family: 'Jua'; font-size: 1.2rem; margin: 15px 0 10px 0; color: var(--text-title); }
-    .step-desc { font-size: 1rem; color: #888; line-height: 1.5; }
-
-    .landing-action {
-        background: white; padding: 50px; border-radius: var(--radius-lg);
-        box-shadow: 0 20px 60px rgba(0,0,0,0.08); border: 4px solid #FFF;
-        outline: 2px solid var(--primary-soft); height: 100%;
-        display: flex; flex-direction: column; justify-content: center; text-align: center;
-    }
-    .action-header { font-family: 'Jua'; font-size: 1.8rem; color: var(--primary); margin-bottom: 20px; text-align: center; }
-
-    /* === BUTTONS & INPUTS === */
+    /* === UI ELEMENTS === */
     .stButton > button {
         width: 100%; height: 54px; border-radius: 12px; border: none;
         background: linear-gradient(45deg, var(--primary), #FF8495);
-        color: white !important; font-family: 'Jua'; font-size: 1.25rem;
+        color: white !important; font-family: 'Jua'; 
+        font-size: clamp(1.1rem, 2vw, 1.3rem) !important; /* 버튼 글씨 반응형 */
         box-shadow: 0 6px 15px rgba(255, 158, 170, 0.3); transition: all 0.2s;
     }
     .stButton > button:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(255, 158, 170, 0.4); }
-    [data-testid="stFileUploader"] { border: 3px dashed #A0C4FF; border-radius: var(--radius-lg); padding: 30px; background: #F0F7FF; text-align: center; }
-    .content-box { background: white; padding: 30px; border-radius: var(--radius-lg); box-shadow: var(--shadow-soft); border: 2px solid #FFF0F5; margin-bottom: 20px; }
+    
+    [data-testid="stFileUploader"] { border: 3px dashed #A0C4FF; border-radius: var(--radius-lg); padding: 30px 10px; background: #F0F7FF; text-align: center; }
+    
+    /* Expander 스타일 살짝 수정 */
+    .streamlit-expanderHeader {
+        font-family: 'Jua', sans-serif;
+        font-size: 1.1rem;
+        color: #555;
+    }
 
-    /* === 📱 모바일 최적화 === */
+    /* === 📱 모바일 최적화 (레이아웃 조정 위주) === */
     @media only screen and (max-width: 768px) {
-        .block-container { padding: 1rem 1.2rem 3rem 1.2rem !important; }
-        .landing-title { font-size: clamp(2rem, 6vw, 3rem) !important; text-align: center; line-height: 1.3; word-break: keep-all; margin-bottom: 10px !important; }
-        .landing-subtitle { font-size: 1rem !important; text-align: center; line-height: 1.6; word-break: keep-all; margin-bottom: 30px !important; }
-        .landing-action { padding: 25px 20px !important; height: auto !important; border-radius: 20px !important; margin-top: 10px; box-shadow: none; border: 2px solid var(--primary-soft); }
-        .action-header { font-size: 1.4rem !important; margin-bottom: 15px !important; word-break: keep-all; }
-        .step-container { flex-direction: column; gap: 12px; margin-top: 10px; }
+        .block-container { 
+            padding: 1rem 1rem 3rem 1rem !important; 
+        }
+        
+        /* 모바일에서 단계별 가이드는 세로로 */
+        .step-container { flex-direction: column; gap: 10px; }
         .step-item { padding: 15px; display: flex; align-items: center; gap: 15px; text-align: left; }
-        .step-title { margin: 0 !important; font-size: 1.1rem !important; }
-        .step-desc { margin: 0 !important; font-size: 0.9rem !important; }
-        .stButton > button { height: 56px !important; font-size: 1.1rem !important; }
-        .polaroid-frame, .profile-group, .dialogue-box, .context-box { padding: 15px !important; transform: none !important; margin-top: 15px !important; margin-bottom: 15px !important; }
+        .step-title { margin: 0 !important; }
+        
+        /* 폴라로이드 회전 효과 제거 (공간 절약) */
+        .polaroid-frame { transform: none !important; margin-bottom: 15px; }
+        
+        /* 말풍선 꼬리 위치 조정 (선택사항) */
+        .dialogue-box::after { display: none; } /* 모바일엔 공간 좁으니 꼬리 제거 깔끔하게 */
+        
+        /* 스트림릿 컬럼 강제 100% (세로 배치) */
         [data-testid="column"] { width: 100% !important; flex: 1 1 auto !important; min-width: unset !important; }
     }
 </style>

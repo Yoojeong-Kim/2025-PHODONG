@@ -240,11 +240,17 @@ def main():
     init_session_state()
     service = PhodongService()
 
+    bear = styles.ArtWork.get_bear(45)
+    c1, c2 = st.columns([0.8, 11.2])
+    with c1: st.markdown(f"<div>{bear}</div>", unsafe_allow_html=True)
+    with c2: st.markdown(styles.Utils.clean_html("<h3 class='font-heading' style='color:#FF9EAA; margin:0; font-size:1.8rem; line-height:1.5;'>포동 PHODONG</h3>"), unsafe_allow_html=True)
+    st.markdown("<hr style='margin: 15px 0 40px 0; border:0; border-top:2px solid #F0F0F0;'>", unsafe_allow_html=True)
+
     # --- 헤더 ---
     st.markdown("""
         <div class="landing-hero" style="text-align:center; padding-bottom: 20px;">
-            <h1 class="landing-title">나만의 동화책 만들기</h1>
-            <p class="landing-subtitle">사진을 올리면 <b>포동이</b>가 이야기를 만들어줘요!</p>
+            <h1 class="landing-title">포동 PHODONG</h1>
+            <p class="landing-subtitle">아이의 소중한 순간들이</b>세상에 하나뿐인 동화책이 됩니다!</p>
         </div>
     """, unsafe_allow_html=True)
 
