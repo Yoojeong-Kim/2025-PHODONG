@@ -263,64 +263,102 @@ def main():
                     </div>
                 """), unsafe_allow_html=True)
 
+        # [수정된 부분] 오른쪽 컬럼: 기존의 큰 박스를 제거하고 Expander(접이식)로 변경
         with right_col:
-            st.markdown(styles.Utils.clean_html("""<div class="landing-action"><div class="action-header">👇 이야기 설정 & 사진 업로드</div>"""), unsafe_allow_html=True)
-            c1, c2 = st.columns(2)
-            with c1: child_name = st.text_input("아이 이름", value="포동이")
-            with c2: age = st.slider("아이 연령", 3, 9, 5)
-            partner_name = st.text_input("함께하는 어른", value="엄마")
-            c3, c4 = st.columns(2)
-            with c3: genre = st.selectbox("장르", GENRE_OPTIONS)
-            with c4: purpose = st.selectbox("교육 목표", PURPOSE_OPTIONS)
+            # 왼쪽 '사용법 보기'와 동일한 스타일로 접었다 펼 수 있게 변경
+            with st.expander("📝 이야기 설정 & 사진 업로드 (클릭)", expanded=True):
+                
+                # 입력 폼 디자인을 깔끔하게 유지하기 위해 컨테이너 사용
+                st.markdown("<div style='padding: 10px 5px;'>", unsafe_allow_html=True)
+
+                c_in1, c_in2 = st.columns(2)
+                with c_in1: child_name = st.text_input("아이 이름", value="포동이")
+                with c_in2: age = st.slider("아이 연령", 3, 9, 5)
+                partner_name = st.text_input("함께하는 어른", value="엄마")
+                
+                c_sel1, c_sel2 = st.columns(2)
+                with c_sel1: genre = st.selectbox("장르", GENRE_OPTIONS)
+                with c_sel2: purpose = st.selectbox("교육 목표", PURPOSE_OPTIONS)
+                
+                st.markdown("<div style='margin-bottom:15px;'></div>", unsafe_allow_html=True)
+                
+                uploaded_files = st.file_uploader(
+                    "사진을 순서대로 여러 장 올려주세요! (최대 5장 권장)", 
+                    type=["jpg", "png", "jpeg"], 
+                    accept_multiple_files=True,
+                    label_visibility="collapsed"
+                )
+                
+                st.markdown("<div style='margin-top:15px;'></div>", unsafe_allow_html=True)
+                process_btn = st.button("✨ 동화책 만들기 시작!", type="primary", use_container_width=True)
+                
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            # --- 로직 실행 (들여쓰기 주의: Expander 밖이 아니라 with right_col 안에 위치하되, 버튼 변수는 위에서 정의됨) ---
+            # 버튼이 클릭되었을 때의 로직은 위에서 정의한 process_btn을 사용하므로, 
+            # 들여쓰기를 맞춰서 바로 아래에 이어가면 됩니다.
             
-            st.markdown("<div style='margin-bottom:15px;'></div>", unsafe_allow_html=True)
-            uploaded_files = st.file_uploader("사진을 순서대로 여러 장 올려주세요!", type=["jpg", "png", "jpeg"], accept_multiple_files=True, label_visibility="collapsed")
-            
-            if st.button("✨ 동화책 만들기 시작!", type="primary", use_container_width=True):
+            if process_btn:
                 if uploaded_files:
+                    # ... (이하 로직은 기존과 동일) ...
                     config = StoryConfig(child_name, partner_name, age, genre, purpose)
-                    total = len(uploaded_files)
-                    progress = st.progress(0)
-                    status = st.empty()
+                    total_files = len(uploaded_files)
+                    
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+                    
                     temp_book = []
-                    context = ""
-                    char_info = {}
+                    context_so_far = ""
+                    character_info = {} 
 
                     try:
                         for i, file in enumerate(uploaded_files):
-                            cur_page = i + 1
-                            img = Image.open(file)
-                            status.markdown(f"**📖 {cur_page}번째 페이지 만드는 중...** ({cur_page}/{total})")
+                            current_page = i + 1
+                            image = Image.open(file)
                             
-                            obj_desc = service.analyze_image(img)
-                            if i == 0: char_info = service.create_character(obj_desc, config)
+                            status_text.markdown(f"**📖 {current_page}번째 페이지 만드는 중...** ({current_page}/{total_files})")
                             
-                            page_data = service.generate_page(cur_page, total, obj_desc, char_info, context, config)
+                            obj_desc = service.analyze_image(image)
+                            
+                            if i == 0:
+                                character_info = service.create_character(obj_desc, config)
+                            
+                            page_data = service.generate_page(
+                                page_num=current_page,
+                                total_pages=total_files,
+                                current_img_desc=obj_desc,
+                                character_info=character_info,
+                                context_so_far=context_so_far,
+                                config=config
+                            )
+                            
                             audio = service.text_to_speech(page_data['dialogue'])
                             
-                            temp_book.append(StoryCard(
-                                page_number=cur_page,
-                                character_name=char_info.get('name', ''),
-                                character_type=char_info.get('type', obj_desc),
-                                personality=char_info.get('personality', ''),
-                                magic_power=char_info.get('power', ''),
+                            card = StoryCard(
+                                page_number=current_page,
+                                character_name=character_info.get('name', '알 수 없음'),
+                                character_type=character_info.get('type', obj_desc),
+                                personality=character_info.get('personality', '-'),
+                                magic_power=character_info.get('power', '-'),
                                 current_object=obj_desc,
                                 story_narration=page_data['story_narration'],
                                 dialogue=page_data['dialogue'],
-                                image=img,
+                                image=image,
                                 audio_data=audio
-                            ))
-                            context += f"\n[Page {cur_page}] {page_data['story_narration']}"
-                            progress.progress((i + 1) / total)
+                            )
+                            temp_book.append(card)
+                            
+                            context_so_far += f"\n[Page {current_page}] {page_data['story_narration']}"
+                            progress_bar.progress((i + 1) / total_files)
                         
                         st.session_state.book_pages = temp_book
                         st.session_state.config = config
                         st.rerun()
+
                     except Exception as e:
                         st.error(f"에러 발생: {e}")
                 else:
-                    st.warning("사진을 올려주세요!")
-            st.markdown("</div>", unsafe_allow_html=True)
+                    st.warning("사진을 최소 1장 이상 올려주세요!")
 
     else:
         if "config" in st.session_state:
