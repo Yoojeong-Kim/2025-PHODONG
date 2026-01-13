@@ -163,7 +163,47 @@ class PhodongService:
 # ==============================================================================
 # 4. 🖥️ UI / VIEW LAYER
 # ==============================================================================
+def main():
+    # 스타일 적용
+    if hasattr(styles, 'apply_custom_css'):
+        styles.apply_custom_css()
+    else:
+        styles.DesignSystem.inject_css()
 
+    # ▼▼▼ [여기서부터 진단 코드입니다] ▼▼▼
+    import google.generativeai as genai
+    import streamlit as st
+    import os
+
+    st.title("🛠️ 긴급 모델 점검")
+    
+    # 1. API 키 확인
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        st.error("❌ API 키가 없습니다! .env 파일이나 Secrets 설정을 확인하세요.")
+        st.stop()
+    else:
+        st.success(f"✅ API 키 확인됨 (시작: {api_key[:4]}***)")
+
+    # 2. 라이브러리 버전 확인
+    st.info(f"📦 설치된 SDK 버전: {genai.__version__}")
+
+    # 3. 사용 가능한 모델 리스트 출력 (가장 중요!)
+    try:
+        genai.configure(api_key=api_key)
+        models = []
+        for m in genai.list_models():
+            # 'generateContent' 메서드를 지원하는 모델만 필터링
+            if 'generateContent' in m.supported_generation_methods:
+                models.append(m.name)
+        
+        st.write("🔑 **내 API 키로 쓸 수 있는 모델 목록:**")
+        st.json(models) # 여기에 뜨는 이름 중 하나를 골라야 합니다!
+
+    except Exception as e:
+        st.error(f"❌ 모델 목록 조회 실패! API 키가 잘못되었거나 권한이 없습니다.\n에러 내용: {e}")
+    # ▲▲▲ [진단 코드 끝] ▲▲▲
+'''
 def main():
     # 0. 초기화
     styles.DesignSystem.inject_css() # CSS 주입
