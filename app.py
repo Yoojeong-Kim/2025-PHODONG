@@ -12,8 +12,264 @@ from dotenv import load_dotenv
 import google.generativeai as genai
 from gtts import gTTS
 
-# styles.py 임포트 (디자인 시스템)
+# styles.py 임포트 (아이콘 및 유틸리티용)
 import styles
+
+# ==============================================================================
+# 0. 🎨 CSS 스타일 (여기에 직접 정의하여 확실하게 적용)
+# ==============================================================================
+CSS_STYLE = """
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap');
+
+    :root {
+        --bg-base: #FFFBF8;
+        --surface: #FFFFFF;
+        --primary: #FF9EAA;        /* 핑크 */
+        --primary-soft: #FFF0F5;
+        --secondary: #FFD580;      /* 옐로우 */
+        --secondary-soft: #FFFBE6;
+        --tertiary: #A0C4FF;       /* 블루 */
+        --tertiary-soft: #F0F7FF;
+        --quaternary: #B5EAD7;     /* 민트 */
+        --quaternary-soft: #F0FFF9;
+        --text-title: #3A3A3A;
+        --text-body: #555555;
+        --shadow-soft: 0 10px 40px rgba(255, 158, 170, 0.1);
+        --radius-lg: 24px;
+        --radius-md: 16px;
+    }
+
+    /* === GLOBAL RESET === */
+    .stApp {
+        background-color: var(--bg-base);
+        background-image: linear-gradient(135deg, #FFFBF8 0%, #FFF5F7 50%, #F0F7FF 100%);
+        color: var(--text-body);
+        font-family: 'Gowun Dodum', sans-serif;
+        text-align: left !important;
+    }
+    .block-container { padding-top: 3rem !important; padding-bottom: 5rem !important; max-width: 1280px; }
+    header, footer, [data-testid="stToolbar"] { visibility: hidden; }
+
+    /* Typography */
+    h1, h2, h3, .font-heading { font-family: 'Jua', sans-serif; letter-spacing: -0.01em; color: var(--text-title); text-align: left; }
+    p, div, span, label, li { font-family: 'Gowun Dodum', sans-serif; font-size: 1.15rem; line-height: 1.8; color: var(--text-body); text-align: left; word-break: keep-all; }
+
+    /* === 🌟 핵심 디자인 컴포넌트 (뷰어용) === */
+
+    /* 1. 폴라로이드 프레임 (이미지용) */
+    .polaroid-frame {
+        background: white;
+        padding: 20px 20px 40px 20px; /* 하단 패딩을 넓게 줘서 폴라로이드 느낌 */
+        box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+        transform: rotate(-2deg); /* 살짝 기울여서 감성 추가 */
+        transition: transform 0.3s;
+        border-radius: 4px; /* 폴라로이드는 각진 모서리 */
+    }
+    .polaroid-frame:hover {
+        transform: rotate(0deg) scale(1.02); /* 호버 시 정자세로 확대 */
+        box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+    }
+    .polaroid-img {
+        width: 100%;
+        height: auto;
+        border: 2px solid #F0F0F0; /* 사진 테두리 */
+        margin-bottom: 15px;
+    }
+    .polaroid-label {
+        font-family: 'Jua', sans-serif;
+        font-size: 1.2rem;
+        color: #555;
+        text-align: center;
+    }
+
+    /* 2. 캐릭터 프로필 박스 (민트색) */
+    .profile-group {
+        background: #F0FFF9; /* 민트색 배경 */
+        border: 3px solid #B5EAD7; /* 민트색 테두리 */
+        border-radius: var(--radius-md);
+        padding: 25px;
+        box-shadow: var(--shadow-soft);
+        margin-top: 30px; /* 폴라로이드와 간격 */
+        position: relative; /* 뱃지 배치를 위해 */
+    }
+    /* 뱃지 스타일 (알약 모양) */
+    .badge-pill {
+        display: inline-block;
+        padding: 6px 15px;
+        border-radius: 50px;
+        font-family: 'Jua', sans-serif;
+        font-size: 1.05rem;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    }
+    .badge-pink { background: #FFF0F5; color: #FF9EAA; border: 2px solid #FF9EAA; }
+    .badge-yellow { background: #FFFBE6; color: #FFD580; border: 2px solid #FFD580; }
+
+    /* 3. 대사 박스 (노란색 말풍선) */
+    .dialogue-box {
+        background: #FFFBE6; /* 노란색 배경 */
+        border: 4px solid #FFE082; /* 진한 노란색 테두리 */
+        border-radius: 25px;
+        padding: 30px;
+        box-shadow: var(--shadow-soft);
+        position: relative;
+        margin-bottom: 30px; /* 상황 설명 박스와 간격 */
+    }
+    /* 말풍선 꼬리 */
+    .dialogue-box::after {
+        content: '';
+        position: absolute;
+        left: -20px; /* 왼쪽으로 뺌 */
+        top: 40px; /* 위에서 40px 위치 */
+        border-right: 20px solid #FFE082; /* 테두리 색과 동일 */
+        border-top: 15px solid transparent;
+        border-bottom: 15px solid transparent;
+    }
+    .dialogue-text {
+        font-family: 'Jua', sans-serif;
+        font-size: 1.4rem;
+        color: #5D4037; /* 진한 갈색 텍스트 */
+        line-height: 1.5;
+        text-align: center;
+    }
+
+    /* 4. 상황 설명 박스 (파란색) */
+    .context-box {
+        background: #F0F7FF; /* 파란색 배경 */
+        border: 3px solid #A0C4FF; /* 파란색 테두리 */
+        border-radius: var(--radius-md);
+        padding: 25px;
+        box-shadow: var(--shadow-soft);
+        font-size: 1.1rem;
+        line-height: 1.7;
+        color: #555;
+    }
+
+    /* === LANDING PAGE & BUTTONS === */
+    .landing-hero { padding: 20px; }
+    .landing-title {
+        font-size: 4rem; color: var(--primary); margin-bottom: 15px; font-family: 'Jua';
+        text-shadow: 2px 2px 0px #FFF0F5;
+    }
+    .landing-subtitle {
+        font-size: 1.4rem; color: #777; margin-bottom: 50px; font-weight: bold;
+    }
+    
+    /* 3-Step Guide */
+    .step-container { display: flex; gap: 20px; margin-top: 40px; }
+    .step-item {
+        flex: 1; background: white; padding: 25px; border-radius: var(--radius-md);
+        box-shadow: var(--shadow-soft); border-top: 5px solid #EEE;
+        transition: transform 0.3s;
+    }
+    .step-item:hover { transform: translateY(-5px); }
+    .step-1 { border-color: var(--tertiary); }
+    .step-2 { border-color: var(--secondary); }
+    .step-3 { border-color: var(--primary); }
+    .step-title { font-family: 'Jua'; font-size: 1.2rem; margin: 15px 0 10px 0; color: var(--text-title); }
+    .step-desc { font-size: 1rem; color: #888; line-height: 1.5; }
+
+    /* Landing Action Section */
+    .landing-action {
+        background: white; padding: 50px; border-radius: var(--radius-lg);
+        box-shadow: 0 20px 60px rgba(0,0,0,0.08); border: 4px solid #FFF;
+        outline: 2px solid var(--primary-soft); height: 100%;
+        display: flex; flex-direction: column; justify-content: center;
+        text-align: center;
+    }
+    .action-header { font-family: 'Jua'; font-size: 1.8rem; color: var(--primary); margin-bottom: 20px; text-align: center; }
+
+    /* === BUTTONS & UPLOADER === */
+    .stButton > button {
+        width: 100%; height: 54px; border-radius: 12px; border: none;
+        background: linear-gradient(45deg, var(--primary), #FF8495);
+        color: white !important; font-family: 'Jua'; font-size: 1.25rem;
+        box-shadow: 0 6px 15px rgba(255, 158, 170, 0.3); transition: all 0.2s; text-align: center !important;
+    }
+    .stButton > button:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(255, 158, 170, 0.4); }
+    [data-testid="stFileUploader"] {
+        border: 3px dashed #A0C4FF; border-radius: var(--radius-lg);
+        padding: 50px 30px; background: #F0F7FF; text-align: center;
+    }
+    /* 카메라 입력 테두리 */
+    [data-testid="stCameraInput"] {
+        border: 4px solid var(--primary);
+        border-radius: var(--radius-lg);
+        padding: 10px;
+        background: white;
+        box-shadow: var(--shadow-soft);
+    }
+    
+    /* Custom Container for Content (Live/Upload Page) */
+    .content-box {
+        background: white; padding: 30px; border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-soft); border: 2px solid #FFF0F5;
+        margin-bottom: 20px;
+    }
+
+    /* === 📱 모바일 전용 스타일 (화면 너비 768px 이하) === */
+    /* 주의: 이 코드는 반드시 <style> 태그 안쪽에 있어야 합니다! */
+    @media only screen and (max-width: 768px) {
+        
+        /* 1. 전체 여백 줄이기 */
+        .block-container {
+            padding-top: 1rem !important;
+            padding-bottom: 3rem !important;
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+
+        /* 2. 제목 폰트 크기 축소 */
+        .landing-title {
+            font-size: 2.5rem !important;
+            text-align: center;
+        }
+        .landing-subtitle {
+            font-size: 1.1rem !important;
+            text-align: center;
+            margin-bottom: 20px !important;
+        }
+
+        /* 3. 단계별 가이드 세로 배치 */
+        .step-container {
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .step-item {
+            padding: 15px;
+        }
+
+        /* 4. 입력 폼 박스 스타일 단순화 */
+        .landing-action {
+            padding: 20px !important;
+            border: 2px solid var(--primary-soft);
+            box-shadow: none;
+        }
+
+        /* 5. 버튼 터치 영역 확대 */
+        .stButton > button {
+            height: 60px !important;
+            font-size: 1.1rem !important;
+        }
+
+        /* 6. 폴라로이드 및 결과 카드 최적화 */
+        .polaroid-frame, .result-card, .content-box, .profile-group, .dialogue-box, .context-box {
+            padding: 15px !important;
+            transform: none !important; /* 모바일에서는 기울기 효과 제거 */
+            margin-top: 15px !important;
+            margin-bottom: 15px !important;
+        }
+        
+        /* 7. 컬럼 강제 조정 (100% 너비) */
+        [data-testid="column"] {
+            width: 100% !important;
+            flex: 1 1 auto !important;
+            min-width: unset !important;
+        }
+    }
+</style>
+"""
 
 # ==============================================================================
 # 1. ⚙️ 설정 및 상태 관리
@@ -37,7 +293,7 @@ GENRE_OPTIONS = ["전래동화", "판타지", "히어로", "요정", "일상", "
 PURPOSE_OPTIONS = ["안전 교육", "예절&규칙", "생활 습관", "어휘력 향상", "세계&다양성", "창의력/사고력", "기초과학", "자존감 높이기"]
 
 # ==============================================================================
-# 2. 📦 데이터 구조 (디자인을 위해 필드 추가됨)
+# 2. 📦 데이터 구조
 # ==============================================================================
 @dataclass
 class StoryConfig:
@@ -51,9 +307,9 @@ class StoryConfig:
 class StoryCard:
     page_number: int = 1
     character_name: str = ""
-    character_type: str = ""   # [추가] 캐릭터 종류 (예: 곰인형)
-    personality: str = ""      # [추가] 성격
-    magic_power: str = ""      # [추가] 능력
+    character_type: str = ""   # 캐릭터 종류 (예: 곰인형)
+    personality: str = ""      # 성격
+    magic_power: str = ""      # 능력
     current_object: str = ""
     story_narration: str = ""
     dialogue: str = ""
@@ -276,7 +532,9 @@ def render_book_viewer(config: StoryConfig):
                 st.rerun()
 
 def main():
-    styles.DesignSystem.inject_css()
+    # [핵심 수정] CSS를 여기서 직접 주입합니다.
+    st.markdown(CSS_STYLE, unsafe_allow_html=True)
+    
     init_session_state()
     service = PhodongService()
 
