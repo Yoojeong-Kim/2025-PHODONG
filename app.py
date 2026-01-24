@@ -98,7 +98,14 @@ class PhodongService:
         """
         try:
             res = self.model.generate_content(prompt)
-            return json.loads(styles.Utils.clean_html(res.text).replace('```json', '').replace('```', ''))
+            text = styles.Utils.clean_html(res.text).replace('```json', '').replace('```', '')
+            data = json.loads(text)
+            
+            # 만약 리스트로 오면 첫 번째 요소를 선택
+            if isinstance(data, list):
+                data = data[0]
+            return data
+
         except:
             return {"name": "포동이", "type": object_desc, "personality": "호기심 많음", "power": "상상하기"}
 
@@ -122,7 +129,14 @@ class PhodongService:
         """
         try:
             res = self.model.generate_content(final_prompt)
-            return json.loads(styles.Utils.clean_html(res.text).replace('```json', '').replace('```', ''))
+            text = styles.Utils.clean_html(res.text).replace('```json', '').replace('```', '')
+            data = json.loads(text)
+            
+            # 만약 리스트로 오면 첫 번째 요소를 선택
+            if isinstance(data, list):
+                data = data[0]
+            return data
+            
         except Exception as e:
             logger.error(f"Page Gen Error: {e}")
             return {"story_narration": "이야기를 잇는 중 오류가 났어요.", "dialogue": "..."}
