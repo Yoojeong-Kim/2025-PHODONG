@@ -321,7 +321,7 @@ def main():
                                     story_narration=page_data['story_narration'],
                                     dialogue=page_data['dialogue'],
                                     image=image,
-                                    audio_data=audio
+                                    #audio_data=audio
                                 ))
                                 context_so_far += f"\n[Page {current_page}] {page_data['story_narration']}"
                                 progress_bar.progress((i + 1) / total_files)
