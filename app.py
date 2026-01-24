@@ -90,8 +90,8 @@ class PhodongService:
         당신은 동화 작가입니다. '{object_desc}' 사진을 보고 주인공을 만들어주세요.
         - 독자: {config.age}세, 장르: {config.genre}, 목표: {config.purpose}
         [출력 JSON] {{
-            "name": "이름 (예: 포동이)",
-            "type": "종류 (예: 용감한 곰인형)",
+            "name": "이름",
+            "type": "종류",
             "personality": "성격 (한 문장)",
             "power": "마법 능력 (한 문장)"
         }}
@@ -268,7 +268,7 @@ def main():
                 st.markdown("<div style='margin-bottom:15px;'></div>", unsafe_allow_html=True)
                 
                 uploaded_files = st.file_uploader(
-                    "사진을 순서대로 여러 장 올려주세요!", 
+                    "사진을 순서대로 여러 장 올려주세요! (최대 3장 체험 가능)", 
                     type=["jpg", "png", "jpeg"], 
                     accept_multiple_files=True,
                     label_visibility="collapsed"
@@ -279,47 +279,51 @@ def main():
             
             if process_btn:
                 if uploaded_files:
-                    config = StoryConfig(child_name, partner_name, age, genre, purpose)
-                    total_files = len(uploaded_files)
-                    progress_bar = st.progress(0)
-                    status_text = st.empty()
-                    temp_book = []
-                    context_so_far = ""
-                    character_info = {} 
+                    # --- [수정된 부분 시작] ---
+                    if len(uploaded_files) > 3:
+                        st.error("🚫 체험판에서는 사진을 최대 3장까지만 업로드할 수 있어요!")
+                    else:
+                        config = StoryConfig(child_name, partner_name, age, genre, purpose)
+                        total_files = len(uploaded_files)
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+                        temp_book = []
+                        context_so_far = ""
+                        character_info = {} 
 
-                    try:
-                        for i, file in enumerate(uploaded_files):
-                            current_page = i + 1
-                            image = Image.open(file)
-                            status_text.markdown(f"**📖 {current_page}번째 페이지 만드는 중...** ({current_page}/{total_files})")
+                        try:
+                            for i, file in enumerate(uploaded_files):
+                                current_page = i + 1
+                                image = Image.open(file)
+                                status_text.markdown(f"**📖 {current_page}번째 페이지 만드는 중...** ({current_page}/{total_files})")
+                                
+                                obj_desc = service.analyze_image(image)
+                                if i == 0: character_info = service.create_character(obj_desc, config)
+                                
+                                page_data = service.generate_page(current_page, total_files, obj_desc, character_info, context_so_far, config)
+                                audio = service.text_to_speech(page_data['dialogue'])
+                                
+                                temp_book.append(StoryCard(
+                                    page_number=current_page,
+                                    character_name=character_info.get('name', '알 수 없음'),
+                                    character_type=character_info.get('type', obj_desc),
+                                    personality=character_info.get('personality', '-'),
+                                    magic_power=character_info.get('power', '-'),
+                                    current_object=obj_desc,
+                                    story_narration=page_data['story_narration'],
+                                    dialogue=page_data['dialogue'],
+                                    image=image,
+                                    audio_data=audio
+                                ))
+                                context_so_far += f"\n[Page {current_page}] {page_data['story_narration']}"
+                                progress_bar.progress((i + 1) / total_files)
                             
-                            obj_desc = service.analyze_image(image)
-                            if i == 0: character_info = service.create_character(obj_desc, config)
-                            
-                            page_data = service.generate_page(current_page, total_files, obj_desc, character_info, context_so_far, config)
-                            audio = service.text_to_speech(page_data['dialogue'])
-                            
-                            temp_book.append(StoryCard(
-                                page_number=current_page,
-                                character_name=character_info.get('name', '알 수 없음'),
-                                character_type=character_info.get('type', obj_desc),
-                                personality=character_info.get('personality', '-'),
-                                magic_power=character_info.get('power', '-'),
-                                current_object=obj_desc,
-                                story_narration=page_data['story_narration'],
-                                dialogue=page_data['dialogue'],
-                                image=image,
-                                audio_data=audio
-                            ))
-                            context_so_far += f"\n[Page {current_page}] {page_data['story_narration']}"
-                            progress_bar.progress((i + 1) / total_files)
-                        
-                        st.session_state.book_pages = temp_book
-                        st.session_state.config = config
-                        st.rerun()
+                            st.session_state.book_pages = temp_book
+                            st.session_state.config = config
+                            st.rerun()
 
-                    except Exception as e:
-                        st.error(f"에러 발생: {e}")
+                        except Exception as e:
+                            st.error(f"에러 발생: {e}")
                 else:
                     st.warning("사진을 최소 1장 이상 올려주세요!")
 
