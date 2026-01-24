@@ -9,7 +9,7 @@ from typing import Optional, List
 from PIL import Image
 from dotenv import load_dotenv
 import google.generativeai as genai
-from gtts import gTTS
+# from gtts import gTTS
 
 # styles.py 임포트 (CSS 및 아이콘)
 import styles
@@ -60,7 +60,7 @@ class StoryCard:
     story_narration: str = ""
     dialogue: str = ""
     image: Optional[Image.Image] = None 
-    audio_data: Optional[bytes] = None
+    #audio_data: Optional[bytes] = None
 
 # ==============================================================================
 # 3. 🧠 AI 서비스
@@ -127,6 +127,7 @@ class PhodongService:
             logger.error(f"Page Gen Error: {e}")
             return {"story_narration": "이야기를 잇는 중 오류가 났어요.", "dialogue": "..."}
 
+    '''
     def text_to_speech(self, text: str) -> Optional[bytes]:
         try:
             if not text: return None
@@ -136,7 +137,7 @@ class PhodongService:
             return mp3_fp.getvalue()
         except:
             return None
-
+    '''
 # ==============================================================================
 # 4. 🖥️ UI / VIEW LAYER
 # ==============================================================================
@@ -201,10 +202,12 @@ def render_book_viewer(config: StoryConfig):
                 </div>
             </div>
         """), unsafe_allow_html=True)
-        
+
+        '''
         if card.audio_data:
             st.markdown("<div style='margin-top:15px;'></div>", unsafe_allow_html=True)
             st.audio(card.audio_data, format='audio/mp3')
+        '''
 
     st.markdown("<div style='margin-top:40px;'></div>", unsafe_allow_html=True)
     b1, b2, b3 = st.columns([1, 2, 1])
@@ -306,7 +309,7 @@ def main():
                                 if i == 0: character_info = service.create_character(obj_desc, config)
                                 
                                 page_data = service.generate_page(current_page, total_files, obj_desc, character_info, context_so_far, config)
-                                audio = service.text_to_speech(page_data['dialogue'])
+                                #audio = service.text_to_speech(page_data['dialogue'])
                                 
                                 temp_book.append(StoryCard(
                                     page_number=current_page,
