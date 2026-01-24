@@ -33,7 +33,7 @@ if hasattr(styles, 'CSS'):
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 logger = logging.getLogger("PhodongApp")
 
-DEFAULT_MODEL = "gemini-2.5-flash" 
+DEFAULT_MODEL = "gemini-2.0-flash-exp" 
 
 GENRE_OPTIONS = ["전래동화", "판타지", "히어로", "요정", "일상", "자동차", "공주/왕자", "추리", "우주", "로봇", "동물", "공룡"]
 PURPOSE_OPTIONS = ["안전 교육", "예절&규칙", "생활 습관", "어휘력 향상", "세계&다양성", "창의력/사고력", "기초과학", "자존감 높이기"]
@@ -136,22 +136,11 @@ class PhodongService:
             if isinstance(data, list):
                 data = data[0]
             return data
-            
+
         except Exception as e:
             logger.error(f"Page Gen Error: {e}")
             return {"story_narration": "이야기를 잇는 중 오류가 났어요.", "dialogue": "..."}
 
-    '''
-    def text_to_speech(self, text: str) -> Optional[bytes]:
-        try:
-            if not text: return None
-            tts = gTTS(text=text, lang='ko')
-            mp3_fp = io.BytesIO()
-            tts.write_to_fp(mp3_fp)
-            return mp3_fp.getvalue()
-        except:
-            return None
-    '''
 # ==============================================================================
 # 4. 🖥️ UI / VIEW LAYER
 # ==============================================================================
@@ -217,11 +206,6 @@ def render_book_viewer(config: StoryConfig):
             </div>
         """), unsafe_allow_html=True)
 
-        '''
-        if card.audio_data:
-            st.markdown("<div style='margin-top:15px;'></div>", unsafe_allow_html=True)
-            st.audio(card.audio_data, format='audio/mp3')
-        '''
 
     st.markdown("<div style='margin-top:40px;'></div>", unsafe_allow_html=True)
     b1, b2, b3 = st.columns([1, 2, 1])
