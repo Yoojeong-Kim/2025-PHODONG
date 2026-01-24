@@ -286,8 +286,7 @@ def main():
                 uploaded_files = st.file_uploader(
                     "사진을 순서대로 여러 장 올려주세요! (최대 3장 체험 가능)", 
                     type=["jpg", "png", "jpeg"], 
-                    accept_multiple_files=True,
-                    label_visibility="collapsed"
+                    accept_multiple_files=True
                 )
                 st.markdown("<div style='margin-top:15px;'></div>", unsafe_allow_html=True)
                 process_btn = st.button("✨ 동화책 만들기 시작!", type="primary", use_container_width=True)
