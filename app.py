@@ -167,12 +167,21 @@ def render_book_viewer(config: StoryConfig):
 
     col_img, col_txt = st.columns([1, 1], gap="large")
 
+
     with col_img:
         img_b64 = styles.Utils.image_to_base64(card.image) if hasattr(styles.Utils, 'image_to_base64') else ""
-        # 임시 base64 변환 로직 (styles에 없을 경우 대비)
+        
+        # 이미지는 있는데 base64가 없는 경우 (변환 시도)
         if not img_b64 and card.image:
             buffered = io.BytesIO()
-            card.image.save(buffered, format="JPEG")
+            current_img = card.image
+            
+            # 투명 배경(PNG/RGBA)이 들어오면 강제로 RGB(흰배경)로 변환
+            # 이걸 안 하면 스크린샷 올렸을 때 앱 뻗어버림!
+            if current_img.mode in ("RGBA", "P"):
+                current_img = current_img.convert("RGB")
+            
+            current_img.save(buffered, format="JPEG")
             img_b64 = base64.b64encode(buffered.getvalue()).decode()
         
         img_src = f"data:image/jpeg;base64,{img_b64}" if img_b64 else ""
@@ -192,6 +201,7 @@ def render_book_viewer(config: StoryConfig):
                 </div>
             </div>
         """), unsafe_allow_html=True)
+
 
     with col_txt:
         st.markdown(styles.Utils.clean_html(f"""
