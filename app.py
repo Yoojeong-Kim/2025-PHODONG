@@ -243,7 +243,7 @@ def main():
     if not st.session_state.book_pages:
         left_col, right_col = st.columns([1, 1], gap="large")
         with left_col:
-            with st.expander("🧸 사용법 보기 (클릭)", expanded=True):
+            with st.expander("🧸 사용법 보기", expanded=True):
                 folder = styles.ArtWork.get_folder(40)
                 bear = styles.ArtWork.get_bear(40)
                 book = styles.ArtWork.get_book_cover(40)
@@ -256,12 +256,17 @@ def main():
                 """), unsafe_allow_html=True)
 
         with right_col:
-            with st.expander("📝 이야기 설정 & 사진 업로드 (클릭)", expanded=True):
+            with st.expander("📝 이야기 설정 & 사진 업로드", expanded=True):
                 st.markdown("<div style='padding: 10px 5px;'>", unsafe_allow_html=True)
                 c_in1, c_in2 = st.columns(2)
-                with c_in1: child_name = st.text_input("아이 이름", value="예) 민준")
-                with c_in2: age = st.slider("아이 연령", 3, 9, 5)
-                partner_name = st.text_input("단짝 이름", value="예) 포동이")
+
+                with c_in1: 
+                    child_name = st.text_input("아이 이름", value="", placeholder="예) 민준")
+                with c_in2: 
+                    age = st.number_input("아이 연령", min_value=1, max_value=13, value=5, step=1)
+
+                partner_name = st.text_input("단짝 이름", value="", placeholder="예) 포동이")
+
                 c_sel1, c_sel2 = st.columns(2)
                 with c_sel1: genre = st.selectbox("장르", GENRE_OPTIONS)
                 with c_sel2: purpose = st.selectbox("교육 목표", PURPOSE_OPTIONS)
