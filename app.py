@@ -1,3 +1,4 @@
+import re
 import streamlit as st
 import os
 import json
@@ -62,11 +63,10 @@ class StoryCard:
     image: Optional[Image.Image] = None 
     #audio_data: Optional[bytes] = None
 
-# ==============================================================================
-# 3. 🧠 AI 서비스
-# ==============================================================================
-# Utils 클래스 중복 제거 -> styles.Utils 사용
 
+# ==============================================================================
+# 3. 🧠 AI 서비스 (Extra data 에러 완벽 해결 버전)
+# ==============================================================================
 class PhodongService:
     def __init__(self):
         self.api_key = os.getenv("GOOGLE_API_KEY")
@@ -77,12 +77,43 @@ class PhodongService:
         genai.configure(api_key=self.api_key)
         self.model = genai.GenerativeModel(DEFAULT_MODEL)
 
+    def _extract_json(self, text: str):
+        """
+        AI 응답에서 JSON 부분만 쏙 뽑아내는 헬퍼 함수.
+        'Extra data' 에러를 방지하기 위해 정규표현식을 사용합니다.
+        """
+        # 1. 마크다운 코드 블록 제거
+        cleaned_text = styles.Utils.clean_html(text).replace('```json', '').replace('```', '').strip()
+        
+        try:
+            # 2. 일단 변환 시도
+            return json.loads(cleaned_text)
+        except json.JSONDecodeError:
+            try:
+                # 3. 실패하면(Extra data 등) { } 구간만 강제로 찾아서 추출
+                # 문장 중간에 있는 첫 번째 JSON 객체를 찾습니다.
+                match = re.search(r'\{[\s\S]*?\}', cleaned_text)
+                if match:
+                    return json.loads(match.group(0))
+                else:
+                    # 매칭되는 게 없으면 전체 텍스트에서 다시 시도 (Greedy)
+                    match_greedy = re.search(r'\{[\s\S]*\}', cleaned_text)
+                    if match_greedy:
+                        return json.loads(match_greedy.group(0))
+                    raise ValueError("JSON 형식을 찾을 수 없음")
+            except Exception:
+                # 4. 최후의 수단: 로그 남기고 실패
+                logger.error(f"JSON 파싱 최종 실패. 원본 텍스트: {text}")
+                # 빈 껍데기라도 리턴해서 앱이 멈추지 않게 함
+                return {}
+
     def analyze_image(self, image: Image.Image) -> str:
         prompt = "이 사진에 있는 주요 사물이나 캐릭터가 무엇인지 단답형으로 한글로 알려줘."
         try:
             res = self.model.generate_content([prompt, image])
             return res.text.strip()
-        except:
+        except Exception as e:
+            logger.error(f"이미지 분석 에러: {e}")
             return "알 수 없는 물건"
 
     def create_character(self, object_desc: str, config: StoryConfig) -> dict:
@@ -98,15 +129,16 @@ class PhodongService:
         """
         try:
             res = self.model.generate_content(prompt)
-            text = styles.Utils.clean_html(res.text).replace('```json', '').replace('```', '')
-            data = json.loads(text)
+            data = self._extract_json(res.text)
             
-            # 만약 리스트로 오면 첫 번째 요소를 선택
-            if isinstance(data, list):
-                data = data[0]
+            if isinstance(data, list): data = data[0]
+            # 파싱 실패로 빈 딕셔너리가 왔을 경우 기본값 처리
+            if not data:
+                return {"name": "포동이", "type": object_desc, "personality": "호기심 많음", "power": "상상하기"}
             return data
 
-        except:
+        except Exception as e:
+            logger.error(f"캐릭터 생성 에러: {e}")
             return {"name": "포동이", "type": object_desc, "personality": "호기심 많음", "power": "상상하기"}
 
     def generate_page(self, page_num: int, total_pages: int, current_img_desc: str, 
@@ -129,17 +161,25 @@ class PhodongService:
         """
         try:
             res = self.model.generate_content(final_prompt)
-            text = styles.Utils.clean_html(res.text).replace('```json', '').replace('```', '')
-            data = json.loads(text)
+            data = self._extract_json(res.text)
             
-            # 만약 리스트로 오면 첫 번째 요소를 선택
-            if isinstance(data, list):
-                data = data[0]
+            if isinstance(data, list): data = data[0]
+            
+            # 데이터 검증 및 기본값 채우기
+            if not data: data = {}
+            if "story_narration" not in data:
+                # JSON 파싱은 됐지만 키가 없는 경우, 원본 텍스트라도 보여줌
+                clean_raw = styles.Utils.clean_html(res.text).replace('```json', '').replace('```', '')
+                data["story_narration"] = clean_raw[:100] + "..." if len(clean_raw) > 100 else clean_raw
+            if "dialogue" not in data:
+                data["dialogue"] = "..."
+                
             return data
 
         except Exception as e:
-            logger.error(f"Page Gen Error: {e}")
-            return {"story_narration": "이야기를 잇는 중 오류가 났어요.", "dialogue": "..."}
+            logger.error(f"페이지 생성 에러: {e}")
+            return {"story_narration": "이야기를 짓는 도중 잠시 딴생각을 했어요. (다시 시도해주세요!)", "dialogue": "..."}
+
 
 # ==============================================================================
 # 4. 🖥️ UI / VIEW LAYER
